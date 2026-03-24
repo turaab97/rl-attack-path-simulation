@@ -271,7 +271,8 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI entry point (also registered as ``train-agent`` console script)."""
     args = _parse_args()
 
     if args.compare:
@@ -291,3 +292,7 @@ if __name__ == "__main__":
             output_dir=args.output_dir,
             seed=args.seed,
         )
+
+
+if __name__ == "__main__":
+    main()

@@ -238,7 +238,8 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI entry point (also registered as ``eval-agent`` console script)."""
     args = _parse_args()
     evaluate_both_agents(
         ppo_model_path=args.ppo_model,
@@ -249,3 +250,7 @@ if __name__ == "__main__":
         detection_threshold=args.detection_threshold,
         output_dir=args.output_dir,
     )
+
+
+if __name__ == "__main__":
+    main()

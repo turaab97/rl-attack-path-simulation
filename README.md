@@ -1,17 +1,18 @@
 # Using AI to Secure AI: RL for Attack Path Simulation Against Enterprise AI Infrastructure
 
-> **MMAI 845 – Reinforcement Learning | Team Broadview**
+> **MMAI 845 – Reinforcement Learning | Syed Ali Turab**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
 [![Stable-Baselines3](https://img.shields.io/badge/SB3-2.3%2B-orange)](https://stable-baselines3.readthedocs.io/)
 [![NASim](https://img.shields.io/badge/NASim-0.3%2B-green)](https://networkattacksimulator.readthedocs.io/)
+[![CI](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
 ---
 
 ## Overview
 
-Enterprises are deploying AI infrastructure—LLM servers, vector databases, and model repositories—into corporate networks that were not designed to protect these assets. Traditional penetration tests are expensive and infrequent; static vulnerability scanners do not model multi-step attacker behaviour.
+Enterprises are deploying AI infrastructure — LLM servers, vector databases, and model repositories — into corporate networks that were not designed to protect these assets. Traditional penetration tests are expensive and infrequent; static vulnerability scanners do not model multi-step attacker behaviour.
 
 This project addresses that gap using **Reinforcement Learning**. An RL agent acts as an attacker navigating a simulated corporate network, learning efficient paths to high-value AI infrastructure. Security teams can use the outputs to:
 
@@ -24,6 +25,25 @@ This project addresses that gap using **Reinforcement Learning**. An RL agent ac
 1. Can PPO and DQN learn effective multi-hop attack paths to AI infrastructure in a simulated enterprise network?
 2. How does a stealth-aware reward signal change the attack strategy learned by each algorithm?
 3. Which algorithm produces faster convergence and higher attack success rate?
+
+---
+
+## Project Status
+
+| Component | Status |
+|---|---|
+| NASim AI-infrastructure network topology | Implemented |
+| Stealth-aware reward wrapper | Implemented |
+| PPO agent (Stable-Baselines3) | Implemented |
+| DQN agent (Stable-Baselines3) | Implemented |
+| Training & evaluation CLI harness | Implemented |
+| Visualisation / plotting utilities | Implemented |
+| Unit & smoke tests | Implemented |
+| GitHub Actions CI | Implemented |
+| Full training runs + saved models | In Progress |
+| Exploratory notebooks | Planned |
+| Extended documentation | Planned |
+| Multi-agent attacker/defender extension | Planned |
 
 ---
 
@@ -58,7 +78,7 @@ The attacker starts at the internet boundary and must pivot through firewalled s
 rl-attack-path-simulation/
 │
 ├── environments/
-│   ├── network_config.py       # NASim scenario: 5 subnets, AI infra hosts
+│   ├── network_config.py       # NASim scenario: 5 subnets, AI-infra hosts
 │   └── stealth_wrapper.py      # Gymnasium wrapper with detection tracking
 │
 ├── agents/
@@ -80,8 +100,12 @@ rl-attack-path-simulation/
 │   ├── test_environment.py     # Environment & wrapper unit tests
 │   └── test_agents.py          # Agent smoke tests
 │
-├── notebooks/                  # Exploratory notebooks (see below)
+├── notebooks/                  # Exploratory notebooks (planned)
+├── docs/                       # Extended documentation (planned)
 ├── results/                    # Saved models, logs, plots (git-ignored)
+├── .github/workflows/ci.yml    # GitHub Actions CI
+├── pyproject.toml              # black / isort / pytest config
+├── .flake8                     # flake8 config
 ├── requirements.txt
 ├── setup.py
 └── README.md
@@ -128,7 +152,7 @@ Both use a 2-layer MLP (256×256) as their function approximator.
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/rl-attack-path-simulation.git
+git clone https://github.com/turaab97/rl-attack-path-simulation.git
 cd rl-attack-path-simulation
 
 # Create a virtual environment (recommended)
@@ -138,14 +162,14 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Or install as a package (editable)
+# Or install as an editable package (includes dev tools)
 pip install -e ".[dev]"
 ```
 
 ### 2. Train a Single Agent
 
 ```bash
-# Train PPO (baseline reward, 500k steps)
+# Train PPO — baseline reward, 500k steps
 python -m training.train --agent ppo --timesteps 500000
 
 # Train DQN with stealth reward
@@ -179,7 +203,7 @@ python -m analysis.visualize --results_dir results/ --output_dir results/plots
 ### 6. Monitor Training with TensorBoard
 
 ```bash
-tensorboard --logdir runs/
+tensorboard --logdir results/
 ```
 
 ### 7. Run Tests
@@ -188,6 +212,24 @@ tensorboard --logdir runs/
 pytest tests/ -v
 # With coverage
 pytest tests/ --cov=. --cov-report=html
+```
+
+---
+
+## Reproducibility
+
+| Item | Value |
+|---|---|
+| Python version | 3.10+ (tested on 3.10) |
+| Key dependencies | See `requirements.txt` |
+| Default random seed | `42` (pass `--seed` to override) |
+| Hardware | CPU sufficient for smoke runs; GPU speeds up 500k-step training |
+
+**Seeding note:** RL experiments have multiple sources of randomness (PyTorch, NumPy, NASim). The `seed` parameter is forwarded to SB3, which seeds PyTorch and NumPy internally. For fully reproducible results, set `--seed` explicitly. The default `DummyVecEnv` is single-threaded and deterministic given the same seed.
+
+```bash
+# Fully reproducible training run
+python -m training.train --agent ppo --timesteps 500000 --seed 42
 ```
 
 ---
@@ -224,7 +266,7 @@ import nasim
 base_env = nasim.make("small-linear")
 env = make_stealth_env(
     base_env,
-    detection_threshold=0.8,      # Episode ends if cumulative risk ≥ this
+    detection_threshold=0.8,      # Episode ends if cumulative risk >= this
     detection_cost_per_step=0.1,  # Risk added per active step
     caught_penalty=-100.0,        # Terminal reward when caught
     alpha=1.0,                    # Detection cost multiplier
@@ -234,9 +276,9 @@ obs, info = env.reset()
 action = env.action_space.sample()
 obs, reward, terminated, truncated, info = env.step(action)
 
-print(info["cumulative_detection"])  # Current detection risk
-print(info["caught"])                # Whether attacker was caught
-print(env.stealth_budget_remaining)  # Budget remaining (1.0 → 0.0)
+print(info["cumulative_detection"])   # Current detection risk
+print(info["caught"])                 # Whether attacker was caught
+print(env.stealth_budget_remaining)   # Budget remaining (1.0 -> 0.0)
 ```
 
 ---
@@ -279,7 +321,30 @@ Training for 500k timesteps on the custom AI-infra topology:
 | PPO | Stealth | ~280 | ~62% | ~31 |
 | DQN | Stealth | ~250 | ~55% | ~35 |
 
-*(Results are indicative; actual values depend on hardware and seed.)*
+*(Indicative — actual values depend on hardware and seed.)*
+
+### Output Artifacts
+
+After a training run, `results/` contains:
+
+```
+results/
+├── ppo_baseline/
+│   ├── final_model.zip          # Saved PPO weights
+│   ├── best_model.zip           # Best checkpoint by eval reward
+│   ├── train_meta.json          # Run metadata (timesteps, seed, wall time)
+│   └── tensorboard/             # TensorBoard logs
+├── dqn_baseline/
+│   └── ...                      # Same structure
+├── eval_results.json            # Aggregate evaluation metrics (PPO vs DQN)
+└── plots/
+    ├── training_curves.png      # Episode reward / length over training
+    ├── comparison_bar.png       # Bar chart: key metrics side-by-side
+    ├── attack_path.png          # Action sequence timeline
+    └── detection_sensitivity.png  # Success rate vs detection threshold
+```
+
+> Trained models and plots are `.gitignore`d. Run the training pipeline locally to generate them.
 
 ---
 
@@ -287,16 +352,38 @@ Training for 500k timesteps on the custom AI-infra topology:
 
 - **PPO converges faster** than DQN on this environment, benefiting from on-policy data.
 - **Stealth reward significantly reduces success rate**, confirming that detection controls matter.
-- The **Data Lake (Subnet 4)** is the hardest target; the LLM API Server (Subnet 3, host 0) is usually the first AI asset compromised.
+- The **Data Lake (Subnet 4)** is the hardest target; the LLM API Server (Subnet 3, host 0) is typically the first AI asset compromised.
 - Reducing `detection_threshold` below 0.4 renders both agents effectively non-functional.
 
 ---
 
-## Team
+## Developer Tooling
 
-| Member | Role |
-|---|---|
-| Team Broadview | Environment design, agent implementation, stealth wrapper, analysis |
+```bash
+# Format code
+black .
+
+# Sort imports
+isort .
+
+# Lint
+flake8 .
+
+# Test with coverage
+pytest tests/ --cov=. --cov-report=html
+```
+
+Configuration lives in `pyproject.toml` and `.flake8`.
+
+---
+
+## Future Work
+
+- **Richer NASim scenarios** — model lateral movement through cloud-native AI pipelines (Kubernetes, S3, MLflow serving).
+- **Reward shaping experiments** — explore curriculum learning: start with a low detection threshold and anneal upward as the agent improves.
+- **Multi-agent extension** — add a defender agent that dynamically patches vulnerabilities, enabling adversarial co-training (attacker vs. defender).
+- **Partial observability** — restrict the attacker's observation to only discovered hosts, closer to real-world conditions.
+- **Transfer learning** — pre-train on simple NASim built-in scenarios, then fine-tune on the custom AI-infra topology.
 
 ---
 
@@ -306,6 +393,14 @@ Training for 500k timesteps on the custom AI-infra topology:
 2. Schulman, J., et al. (2017). **Proximal Policy Optimization Algorithms**. arXiv:1707.06347.
 3. Mnih, V., et al. (2015). **Human-level control through deep reinforcement learning**. *Nature*, 518, 529–533.
 4. Raffin, A., et al. (2021). **Stable-Baselines3: Reliable Reinforcement Learning Implementations**. *JMLR*, 22(268), 1–8.
+
+---
+
+## Author
+
+**Syed Ali Turab** — [info@turab.sh](mailto:info@turab.sh)
+
+MMAI 845 – Reinforcement Learning, Queen's University
 
 ---
 
