@@ -1,0 +1,42 @@
+# PPO Hyperparameters – MMAI 845 Attack Path Simulation
+# -------------------------------------------------------
+# These defaults are tuned for the custom AI-infrastructure NASim scenario.
+# Override any value via CLI arguments in training/train.py.
+
+agent: ppo
+
+training:
+  total_timesteps: 500000
+  seed: 42
+  device: auto           # auto | cpu | cuda
+
+hyperparameters:
+  learning_rate: 3.0e-4
+  n_steps: 2048          # Steps per rollout buffer
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01         # Entropy coeff – higher = more exploration
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+policy:
+  net_arch: [256, 256]   # Two hidden layers, 256 units each
+
+evaluation:
+  eval_freq: 10000
+  n_eval_episodes: 10
+  reward_threshold: null  # null = no early stop
+
+stealth:
+  enabled: false
+  detection_threshold: 0.8
+  detection_cost_per_step: 0.1
+  caught_penalty: -100.0
+  alpha: 1.0
+
+output:
+  output_dir: results/ppo_baseline
+  tensorboard_log: runs/ppo

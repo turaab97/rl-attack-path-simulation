@@ -1,0 +1,46 @@
+# DQN Hyperparameters – MMAI 845 Attack Path Simulation
+# -------------------------------------------------------
+# These defaults are tuned for the custom AI-infrastructure NASim scenario.
+# Override any value via CLI arguments in training/train.py.
+
+agent: dqn
+
+training:
+  total_timesteps: 500000
+  seed: 42
+  device: auto           # auto | cpu | cuda
+
+hyperparameters:
+  learning_rate: 1.0e-4
+  buffer_size: 100000    # Replay buffer size
+  learning_starts: 1000  # Steps before first gradient update
+  batch_size: 64
+  tau: 1.0               # Soft update (1.0 = hard update)
+  gamma: 0.99
+  train_freq: 4          # Update model every N steps
+  gradient_steps: 1
+  target_update_interval: 1000
+
+exploration:
+  exploration_fraction: 0.2      # Fraction of training for ε decay
+  exploration_initial_eps: 1.0   # Starting ε
+  exploration_final_eps: 0.05    # Final ε
+
+policy:
+  net_arch: [256, 256]
+
+evaluation:
+  eval_freq: 10000
+  n_eval_episodes: 10
+  reward_threshold: null
+
+stealth:
+  enabled: false
+  detection_threshold: 0.8
+  detection_cost_per_step: 0.1
+  caught_penalty: -100.0
+  alpha: 1.0
+
+output:
+  output_dir: results/dqn_baseline
+  tensorboard_log: runs/dqn
