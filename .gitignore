@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ML artefacts
+runs/
+results/*/tensorboard/
+results/*/best_model.zip
+results/*/final_model.zip
+*.zip
+*.pt
+*.pth
+
+# Plots (regenerate with analysis/visualize.py)
+results/plots/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets / credentials
+.env
+*.key
+*.pem
+secrets.yaml
+
+# Large data files
+*.csv
+*.hdf5
+*.h5
+data/raw/
+data/processed/
