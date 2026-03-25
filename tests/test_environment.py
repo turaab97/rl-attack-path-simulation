@@ -18,7 +18,7 @@ def base_env():
     """Create a baseline NASim environment using a small built-in scenario."""
     import nasim
 
-    env = nasim.make("small-linear")
+    env = nasim.make_benchmark("small-linear")
     yield env
     env.close()
 
@@ -155,7 +155,7 @@ class TestRewardShaping:
 
         import nasim
 
-        unwrapped = nasim.make("small-linear")
+        unwrapped = nasim.make_benchmark("small-linear")
 
         base_obs, _ = unwrapped.reset()
         wrapped_obs, _ = wrapped.reset()

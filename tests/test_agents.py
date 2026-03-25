@@ -13,7 +13,7 @@ SMOKE_TIMESTEPS = 2_000  # Very short: just enough to verify no crashes
 
 @pytest.fixture(scope="module")
 def small_env():
-    env = nasim.make("small-linear")
+    env = nasim.make_benchmark("small-linear")
     yield env
     env.close()
 
@@ -30,7 +30,7 @@ class TestPPOAgent:
 
         from agents.ppo_agent import PPOAttackAgent
 
-        env = nasim.make("small-linear")
+        env = nasim.make_benchmark("small-linear")
         agent = PPOAttackAgent(env=env, tensorboard_log=None)
         agent.train(total_timesteps=SMOKE_TIMESTEPS)
         env.close()
@@ -40,7 +40,7 @@ class TestPPOAgent:
 
         from agents.ppo_agent import PPOAttackAgent
 
-        env = nasim.make("small-linear")
+        env = nasim.make_benchmark("small-linear")
         agent = PPOAttackAgent(env=env, tensorboard_log=None)
         obs, _ = env.reset()
         action = agent.predict(obs)
@@ -52,7 +52,7 @@ class TestPPOAgent:
 
         from agents.ppo_agent import PPOAttackAgent
 
-        env = nasim.make("small-linear")
+        env = nasim.make_benchmark("small-linear")
         agent = PPOAttackAgent(env=env, tensorboard_log=None)
         save_path = str(tmp_path / "ppo_test")
         agent.save(save_path)
@@ -68,7 +68,7 @@ class TestDQNAgent:
 
         from agents.dqn_agent import DQNAttackAgent
 
-        env = nasim.make("small-linear")
+        env = nasim.make_benchmark("small-linear")
         agent = DQNAttackAgent(env=env, tensorboard_log=None)
         assert agent.model is not None
         env.close()
@@ -78,7 +78,7 @@ class TestDQNAgent:
 
         from agents.dqn_agent import DQNAttackAgent
 
-        env = nasim.make("small-linear")
+        env = nasim.make_benchmark("small-linear")
         agent = DQNAttackAgent(env=env, tensorboard_log=None, learning_starts=100)
         agent.train(total_timesteps=SMOKE_TIMESTEPS)
         env.close()
@@ -88,7 +88,7 @@ class TestDQNAgent:
 
         from agents.dqn_agent import DQNAttackAgent
 
-        env = nasim.make("small-linear")
+        env = nasim.make_benchmark("small-linear")
         agent = DQNAttackAgent(env=env, tensorboard_log=None)
         obs, _ = env.reset()
         action = agent.predict(obs)
@@ -100,8 +100,8 @@ class TestDQNAgent:
 
         from agents.dqn_agent import DQNAttackAgent
 
-        train_env = nasim.make("small-linear")
-        eval_env = nasim.make("small-linear")
+        train_env = nasim.make_benchmark("small-linear")
+        eval_env = nasim.make_benchmark("small-linear")
         agent = DQNAttackAgent(env=train_env, tensorboard_log=None, learning_starts=100)
         agent.train(total_timesteps=SMOKE_TIMESTEPS)
         result = agent.run_episode(eval_env)

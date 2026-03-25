@@ -12,7 +12,13 @@ be imported cleanly in headless CI environments.
 import sys
 from unittest.mock import MagicMock
 
-# Mock tkinter before anything imports nasim
-for _mod in ("tkinter", "tkinter.filedialog", "tkinter.ttk"):
+# Mock tkinter and all submodules nasim probes before anything imports nasim
+for _mod in (
+    "tkinter",
+    "tkinter.filedialog",
+    "tkinter.font",
+    "tkinter.messagebox",
+    "tkinter.ttk",
+):
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()

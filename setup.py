@@ -16,7 +16,7 @@ setup(
     python_requires=">=3.10",
     packages=find_packages(exclude=["tests*", "notebooks*"]),
     install_requires=[
-        "nasim>=0.3.0",
+        "nasim>=0.10.0",
         "stable-baselines3[extra]>=2.3.0",
         "gymnasium>=0.29.0",
         "torch>=2.0.0",

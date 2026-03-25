@@ -22,8 +22,10 @@ This file exposes:
 
 from __future__ import annotations
 
+import os
+import tempfile
+
 import nasim
-import yaml
 
 # ---------------------------------------------------------------------------
 # Host catalogue
@@ -233,8 +235,13 @@ def build_network_scenario(
     nasim.Scenario
         A fully-configured scenario ready to be wrapped with nasim.load().
     """
-    scenario_dict = yaml.safe_load(_NETWORK_YAML)
-    scenario = nasim.load_scenario(scenario_dict)
+    fd, tmp_path = tempfile.mkstemp(suffix=".yaml")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(_NETWORK_YAML)
+        scenario = nasim.load_scenario(tmp_path)
+    finally:
+        os.unlink(tmp_path)
     return scenario
 
 
@@ -256,8 +263,15 @@ def make_env(scenario_name: str | None = None, stealth: bool = False) -> nasim.N
     nasim.NASimEnv
     """
     if scenario_name is not None:
-        env = nasim.make(scenario_name)
+        # nasim >= 0.10: use make_benchmark() for built-in scenarios
+        env = nasim.make_benchmark(scenario_name)
     else:
-        scenario = build_network_scenario(stealth=stealth)
-        env = nasim.load(scenario)
+        # Custom AI-infra topology: write YAML to a temp file, load from path
+        fd, tmp_path = tempfile.mkstemp(suffix=".yaml")
+        try:
+            with os.fdopen(fd, "w") as f:
+                f.write(_NETWORK_YAML)
+            env = nasim.load(tmp_path, name="ai-infra")
+        finally:
+            os.unlink(tmp_path)
     return env
