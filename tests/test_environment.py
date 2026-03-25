@@ -63,7 +63,7 @@ class TestBaseEnvironment:
 
     def test_step_returns_five_tuple(self, base_env):
         base_env.reset()
-        action = base_env.action_space.sample()
+        action = int(base_env.action_space.sample())
         result = base_env.step(action)
         assert len(result) == 5, "step() should return (obs, reward, terminated, truncated, info)"
 
@@ -74,7 +74,7 @@ class TestBaseEnvironment:
         max_steps = 500
         steps = 0
         while not done and steps < max_steps:
-            action = base_env.action_space.sample()
+            action = int(base_env.action_space.sample())
             _, _, terminated, truncated, _ = base_env.step(action)
             done = terminated or truncated
             steps += 1
@@ -160,8 +160,8 @@ class TestRewardShaping:
         base_obs, _ = unwrapped.reset()
         wrapped_obs, _ = wrapped.reset()
 
-        # Step both envs with the same action
-        action = unwrapped.action_space.sample()
+        # Step both envs with the same action (int coercion required by nasim >= 0.10)
+        action = int(unwrapped.action_space.sample())
         _, base_rew, _, _, _ = unwrapped.step(action)
         _, wrap_rew, _, _, _ = wrapped.step(action)
 

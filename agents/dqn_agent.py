@@ -29,6 +29,13 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 
+class _IntActionWrapper(gym.Wrapper):
+    """Coerce actions to Python int — required by nasim >= 0.10 with NumPy 2.x."""
+
+    def step(self, action):
+        return self.env.step(int(action))
+
+
 class EpisodeStatsCallback(BaseCallback):
     """Log per-episode stats to TensorBoard."""
 
@@ -108,7 +115,7 @@ class DQNAttackAgent:
         seed: int = 42,
         device: str = "auto",
     ) -> None:
-        self.env = Monitor(env)
+        self.env = Monitor(_IntActionWrapper(env))
         self.seed = seed
 
         if policy_kwargs is None:

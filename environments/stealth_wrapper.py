@@ -83,7 +83,7 @@ class StealthAwareWrapper(gym.Wrapper):
         return obs, info
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
-        obs, reward, terminated, truncated, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(int(action))
 
         self._steps += 1
 

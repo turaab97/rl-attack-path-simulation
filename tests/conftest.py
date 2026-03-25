@@ -18,6 +18,7 @@ for _mod in (
     "tkinter.filedialog",
     "tkinter.font",
     "tkinter.messagebox",
+    "tkinter.simpledialog",
     "tkinter.ttk",
 ):
     if _mod not in sys.modules:
