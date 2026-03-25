@@ -5,18 +5,19 @@ Unit tests for the NASim environment configuration and stealth wrapper.
 Run with: pytest tests/
 """
 
-import pytest
 import numpy as np
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def base_env():
     """Create a baseline NASim environment using a small built-in scenario."""
     import nasim
+
     env = nasim.make("small-linear")
     yield env
     env.close()
@@ -26,6 +27,7 @@ def base_env():
 def stealth_env(base_env):
     """Wrap the baseline env with the stealth wrapper."""
     from environments.stealth_wrapper import StealthAwareWrapper
+
     wrapped = StealthAwareWrapper(
         base_env,
         detection_threshold=0.5,
@@ -39,6 +41,7 @@ def stealth_env(base_env):
 # Environment structure tests
 # ---------------------------------------------------------------------------
 
+
 class TestBaseEnvironment:
     def test_env_creates_successfully(self, base_env):
         assert base_env is not None
@@ -49,6 +52,7 @@ class TestBaseEnvironment:
 
     def test_action_space_is_discrete(self, base_env):
         import gymnasium as gym
+
         assert isinstance(base_env.action_space, gym.spaces.Discrete)
 
     def test_reset_returns_valid_observation(self, base_env):
@@ -81,6 +85,7 @@ class TestBaseEnvironment:
 # ---------------------------------------------------------------------------
 # Stealth wrapper tests
 # ---------------------------------------------------------------------------
+
 
 class TestStealthWrapper:
     def test_wrapper_resets_detection_score(self, stealth_env):
@@ -137,6 +142,7 @@ class TestStealthWrapper:
 # Reward shaping sanity check
 # ---------------------------------------------------------------------------
 
+
 class TestRewardShaping:
     def test_shaped_reward_differs_from_base(self, base_env):
         """
@@ -144,9 +150,11 @@ class TestRewardShaping:
         on at least some steps (due to the detection penalty).
         """
         from environments.stealth_wrapper import StealthAwareWrapper
+
         wrapped = StealthAwareWrapper(base_env, detection_cost_per_step=0.5, alpha=1.0)
 
         import nasim
+
         unwrapped = nasim.make("small-linear")
 
         base_obs, _ = unwrapped.reset()

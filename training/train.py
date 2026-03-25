@@ -17,21 +17,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from pathlib import Path
-
-import nasim
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
 from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_environments(
     scenario_name: str | None,
@@ -63,6 +60,7 @@ def _make_environments(
 # ---------------------------------------------------------------------------
 # Single-agent training
 # ---------------------------------------------------------------------------
+
 
 def train_agent(
     agent_type: str = "ppo",
@@ -174,6 +172,7 @@ def train_agent(
 # Head-to-head comparison
 # ---------------------------------------------------------------------------
 
+
 def run_comparison(
     scenario_name: str | None = None,
     stealth: bool = False,
@@ -219,10 +218,9 @@ def run_comparison(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="Train PPO / DQN attack-path agents on NASim."
-    )
+    p = argparse.ArgumentParser(description="Train PPO / DQN attack-path agents on NASim.")
     p.add_argument(
         "--agent",
         choices=["ppo", "dqn"],
@@ -233,7 +231,7 @@ def _parse_args() -> argparse.Namespace:
         "--scenario",
         default=None,
         help="NASim built-in scenario name (e.g. 'small-linear'). "
-             "Omit to use the custom AI-infra topology.",
+        "Omit to use the custom AI-infra topology.",
     )
     p.add_argument(
         "--stealth",

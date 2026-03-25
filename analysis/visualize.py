@@ -11,15 +11,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import matplotlib
-matplotlib.use("Agg")  # non-interactive backend for headless execution
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
-import pandas as pd
-import seaborn as sns
+
+matplotlib.use("Agg")  # non-interactive backend — must be called before pyplot import
+
+import matplotlib.patches as mpatches  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+import pandas as pd  # noqa: E402
+import seaborn as sns  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Global style
@@ -31,6 +32,7 @@ COLORS = {"ppo": "#2196F3", "dqn": "#FF5722", "stealth": "#9C27B0", "baseline": 
 # ---------------------------------------------------------------------------
 # 1. Training curves (reward / episode length over timesteps)
 # ---------------------------------------------------------------------------
+
 
 def plot_training_curves(
     log_dir: str,
@@ -99,6 +101,7 @@ def plot_training_curves(
 # 2. Attack path visualisation
 # ---------------------------------------------------------------------------
 
+
 def plot_attack_path(
     path: list[int],
     action_meanings: list[str] | None = None,
@@ -153,8 +156,14 @@ def plot_attack_path(
         label = meaning if meaning else str(action)
         ax.barh(0, 1, left=i, color=color, edgecolor="white", height=0.5)
         ax.text(
-            i + 0.5, 0, label[:10], ha="center", va="center",
-            fontsize=7, color="white", fontweight="bold",
+            i + 0.5,
+            0,
+            label[:10],
+            ha="center",
+            va="center",
+            fontsize=7,
+            color="white",
+            fontweight="bold",
         )
 
     # Legend
@@ -173,6 +182,7 @@ def plot_attack_path(
 # ---------------------------------------------------------------------------
 # 3. Detection sensitivity sweep
 # ---------------------------------------------------------------------------
+
 
 def plot_detection_sensitivity(
     thresholds: list[float],
@@ -214,6 +224,7 @@ def plot_detection_sensitivity(
 # ---------------------------------------------------------------------------
 # 4. Comparison bar chart
 # ---------------------------------------------------------------------------
+
 
 def plot_comparison_bar(
     eval_results: dict[str, dict],
@@ -273,6 +284,7 @@ def plot_comparison_bar(
 # ---------------------------------------------------------------------------
 # 5. Full report generator
 # ---------------------------------------------------------------------------
+
 
 def generate_full_report(
     results_dir: str = "results",

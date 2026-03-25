@@ -31,10 +31,10 @@ from agents.ppo_agent import PPOAttackAgent
 from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
-
 # ---------------------------------------------------------------------------
 # Core evaluation function
 # ---------------------------------------------------------------------------
+
 
 def evaluate_agent(
     agent,
@@ -154,8 +154,7 @@ def evaluate_both_agents(
     with open(out / "eval_results.json", "w") as f:
         # per_episode can be large; we'll strip the path list from the JSON
         stripped = {
-            k: {kk: vv for kk, vv in v.items() if kk != "per_episode"}
-            for k, v in combined.items()
+            k: {kk: vv for kk, vv in v.items() if kk != "per_episode"} for k, v in combined.items()
         }
         json.dump(stripped, f, indent=2)
 
@@ -169,6 +168,7 @@ def evaluate_both_agents(
 # ---------------------------------------------------------------------------
 # Pretty-print helpers
 # ---------------------------------------------------------------------------
+
 
 def _print_comparison(ppo: dict, dqn: dict, stealth: bool = False) -> None:
     mode = "STEALTH" if stealth else "BASELINE"
@@ -202,10 +202,9 @@ def _print_comparison(ppo: dict, dqn: dict, stealth: bool = False) -> None:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
+
 def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(
-        description="Evaluate trained PPO / DQN agents on NASim."
-    )
+    p = argparse.ArgumentParser(description="Evaluate trained PPO / DQN agents on NASim.")
     p.add_argument("--ppo_model", required=True, help="Path to PPO model (.zip).")
     p.add_argument("--dqn_model", required=True, help="Path to DQN model (.zip).")
     p.add_argument(

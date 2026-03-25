@@ -52,9 +52,7 @@ class EpisodeStatsCallback(BaseCallback):
                 self.logger.record("train/ep_rew_mean", ep["r"])
                 self.logger.record("train/ep_len_mean", ep["l"])
                 if "cumulative_detection" in info:
-                    self.logger.record(
-                        "train/cumulative_detection", info["cumulative_detection"]
-                    )
+                    self.logger.record("train/cumulative_detection", info["cumulative_detection"])
         return True
 
 
@@ -212,9 +210,7 @@ class PPOAttackAgent:
         action, _ = self.model.predict(obs, deterministic=deterministic)
         return int(action)
 
-    def run_episode(
-        self, env: gym.Env, deterministic: bool = True
-    ) -> dict[str, Any]:
+    def run_episode(self, env: gym.Env, deterministic: bool = True) -> dict[str, Any]:
         """
         Roll out one full episode and return metrics.
 

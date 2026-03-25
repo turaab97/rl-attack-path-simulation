@@ -21,8 +21,9 @@ This file exposes:
 """
 
 from __future__ import annotations
-import yaml
+
 import nasim
+import yaml
 
 # ---------------------------------------------------------------------------
 # Host catalogue
@@ -33,10 +34,10 @@ import nasim
 
 # High-value target hosts – AI infrastructure
 AI_INFRA_HOSTS = [
-    (3, 0),   # LLM API Server
-    (3, 1),   # Vector Database (Pinecone / Weaviate clone)
-    (3, 2),   # Model Repository (MLflow / DVC server)
-    (4, 0),   # Training Data Lake (highest value)
+    (3, 0),  # LLM API Server
+    (3, 1),  # Vector Database (Pinecone / Weaviate clone)
+    (3, 2),  # Model Repository (MLflow / DVC server)
+    (4, 0),  # Training Data Lake (highest value)
 ]
 
 _NETWORK_YAML = """\
