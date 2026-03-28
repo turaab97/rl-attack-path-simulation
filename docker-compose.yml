@@ -1,0 +1,96 @@
+# ============================================================================
+# docker-compose.yml — RL Attack-Path Simulation
+# Author: Syed Ali Turab
+# Course: MMAI 845 – Reinforcement Learning
+#
+# Three services:
+#   train     — Train PPO & DQN (baseline + stealth), save models to results/
+#   evaluate  — Load saved models, run 100-episode evaluation, save metrics
+#   visualize — Generate plots from saved evaluation results
+#
+# Usage:
+#   docker compose run train
+#   docker compose run evaluate
+#   docker compose run visualize
+#
+# Results are persisted to the host via a bind mount at ./results
+# ============================================================================
+
+services:
+  train:
+    build: .
+    command: ["train", "--compare", "--timesteps", "500000"]
+    volumes:
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  train-stealth:
+    build: .
+    command:
+      [
+        "train",
+        "--compare",
+        "--stealth",
+        "--timesteps",
+        "500000",
+        "--detection_threshold",
+        "0.8",
+        "--detection_cost",
+        "0.1",
+        "--caught_penalty",
+        "-100.0",
+      ]
+    volumes:
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  evaluate:
+    build: .
+    command:
+      [
+        "evaluate",
+        "--ppo_model",
+        "results/ppo_baseline/final_model",
+        "--dqn_model",
+        "results/dqn_baseline/final_model",
+        "--episodes",
+        "100",
+      ]
+    volumes:
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  evaluate-stealth:
+    build: .
+    command:
+      [
+        "evaluate",
+        "--ppo_model",
+        "results/ppo_stealth/final_model",
+        "--dqn_model",
+        "results/dqn_stealth/final_model",
+        "--stealth",
+        "--episodes",
+        "100",
+      ]
+    volumes:
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  visualize:
+    build: .
+    command: ["visualize"]
+    volumes:
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  test:
+    build: .
+    command: ["test"]
+    environment:
+      - PYTHONUNBUFFERED=1

@@ -1,0 +1,12 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+results/
+runs/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+notebooks/.ipynb_checkpoints/
