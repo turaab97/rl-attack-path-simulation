@@ -3,6 +3,9 @@ ppo_agent.py
 ------------
 Proximal Policy Optimization (PPO) agent for NASim attack-path simulation.
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 Uses Stable-Baselines3 PPO with an MLP policy.  NASim exposes a flat
 observation vector and a discrete action space, so MlpPolicy is the natural
 choice.
@@ -32,12 +35,7 @@ from stable_baselines3.common.callbacks import (
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-
-class _IntActionWrapper(gym.Wrapper):
-    """Coerce actions to Python int — required by nasim >= 0.10 with NumPy 2.x."""
-
-    def step(self, action):
-        return self.env.step(int(action))
+from agents.wrappers import IntActionWrapper
 
 
 class EpisodeStatsCallback(BaseCallback):
@@ -115,7 +113,7 @@ class PPOAttackAgent:
         seed: int = 42,
         device: str = "auto",
     ) -> None:
-        self.env = Monitor(_IntActionWrapper(env))
+        self.env = Monitor(IntActionWrapper(env))
         self.seed = seed
 
         if policy_kwargs is None:

@@ -117,6 +117,8 @@ def evaluate_both_agents(
     n_episodes: int = 100,
     detection_threshold: float = 0.8,
     detection_cost_per_step: float = 0.1,
+    caught_penalty: float = -100.0,
+    alpha: float = 1.0,
     output_dir: str = "results",
 ) -> dict[str, Any]:
     """
@@ -141,11 +143,15 @@ def evaluate_both_agents(
             ppo_env,
             detection_threshold=detection_threshold,
             detection_cost_per_step=detection_cost_per_step,
+            caught_penalty=caught_penalty,
+            alpha=alpha,
         )
         dqn_env = make_stealth_env(
             dqn_env,
             detection_threshold=detection_threshold,
             detection_cost_per_step=detection_cost_per_step,
+            caught_penalty=caught_penalty,
+            alpha=alpha,
         )
 
     # Load agents
@@ -246,6 +252,24 @@ def _parse_args() -> argparse.Namespace:
         help="Detection threshold (default: 0.8).",
     )
     p.add_argument(
+        "--detection_cost",
+        type=float,
+        default=0.1,
+        help="Detection cost per active step (default: 0.1).",
+    )
+    p.add_argument(
+        "--caught_penalty",
+        type=float,
+        default=-100.0,
+        help="Penalty when attacker is caught (default: -100.0).",
+    )
+    p.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Stealth penalty coefficient (default: 1.0).",
+    )
+    p.add_argument(
         "--output_dir",
         default="results",
         help="Directory to save evaluation results (default: results/).",
@@ -263,6 +287,9 @@ def main() -> None:
         stealth=args.stealth,
         n_episodes=args.episodes,
         detection_threshold=args.detection_threshold,
+        detection_cost_per_step=args.detection_cost,
+        caught_penalty=args.caught_penalty,
+        alpha=args.alpha,
         output_dir=args.output_dir,
     )
 

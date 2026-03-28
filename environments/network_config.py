@@ -4,6 +4,9 @@ network_config.py
 Defines the NASim scenario representing a corporate network that hosts
 AI infrastructure (LLM servers, vector databases, model repositories).
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 Network topology
 ================
 Subnet 0 (Internet / attacker entry point)
@@ -16,8 +19,9 @@ Every host in Subnet 3-4 is tagged as an AI-infrastructure asset.
 The attacker starts in Subnet 0 and must pivot through the subnets.
 
 This file exposes:
-  - build_network_scenario(stealth=False)  →  nasim.Scenario object
-  - AI_INFRA_HOSTS                         →  list of (subnet, host) tuples
+  - build_network_scenario()  →  nasim.Scenario object
+  - AI_INFRA_HOSTS            →  list of (subnet, host) tuples
+  - make_env()                →  nasim.NASimEnv ready to use
 """
 
 from __future__ import annotations
@@ -213,27 +217,16 @@ host_configurations:
 """
 
 
-def build_network_scenario(
-    stealth: bool = False,
-    detection_threshold: float = 0.8,
-) -> nasim.Scenario:
+def build_network_scenario() -> nasim.Scenario:
     """
     Build and return a NASim Scenario for the corporate AI-infrastructure
     network.
-
-    Parameters
-    ----------
-    stealth : bool
-        If True, a non-zero detection cost is embedded in each exploit so the
-        stealth wrapper can accumulate risk correctly.  (The wrapper itself
-        adjusts the reward; this flag mainly serves as documentation.)
-    detection_threshold : float
-        Passed through for reference; enforcement lives in StealthAwareWrapper.
 
     Returns
     -------
     nasim.Scenario
         A fully-configured scenario ready to be wrapped with nasim.load().
+        Stealth behaviour is handled separately by StealthAwareWrapper.
     """
     fd, tmp_path = tempfile.mkstemp(suffix=".yaml")
     try:

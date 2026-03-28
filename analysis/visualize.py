@@ -3,6 +3,9 @@ visualize.py
 ------------
 Plotting and reporting utilities for the RL attack-path simulation project.
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 All plots are saved as PNG files in the specified output directory.
 Requires: matplotlib, seaborn, pandas, numpy.
 """
@@ -261,10 +264,12 @@ def plot_comparison_bar(
         offset = (i - len(agents) / 2) * width + width / 2
         bars = ax.bar(x + offset, vals, width=width * 0.9, label=agent)
         # Value labels on bars
+        abs_vals = [abs(v) for v in vals if v]
+        label_offset = 0.01 * max(abs_vals) if abs_vals else 0.01
         for bar, val in zip(bars, vals):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
-                bar.get_height() + 0.01 * max(abs(v) for v in vals if v),
+                bar.get_height() + label_offset,
                 f"{val:.2f}",
                 ha="center",
                 va="bottom",
@@ -300,17 +305,15 @@ def generate_full_report(
     eval_path = rdir / "eval_results.json"
     comp_path = rdir / "comparison_summary.json"
 
-    # Comparison bar chart
+    # Comparison bar chart — only use eval_results.json which has the right
+    # metric keys (mean_reward, success_rate, etc.).  comparison_summary.json
+    # contains training metadata, not evaluation metrics.
     if eval_path.exists():
         with open(eval_path) as f:
             eval_data = json.load(f)
         plot_comparison_bar(eval_data, output_path=str(Path(output_dir) / "comparison_bar.png"))
-    elif comp_path.exists():
-        with open(comp_path) as f:
-            comp_data = json.load(f)
-        plot_comparison_bar(comp_data, output_path=str(Path(output_dir) / "comparison_bar.png"))
     else:
-        print("[visualize] No eval_results.json or comparison_summary.json found.")
+        print("[visualize] No eval_results.json found — run evaluation first.")
 
     # Training curves
     for subdir in rdir.iterdir():

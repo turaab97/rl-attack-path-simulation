@@ -3,6 +3,9 @@ dqn_agent.py
 ------------
 Deep Q-Network (DQN) agent for NASim attack-path simulation.
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 Uses Stable-Baselines3 DQN with an MLP policy.  DQN is particularly useful
 here because NASim's discrete action space maps naturally to a Q-table
 approximated by an MLP; epsilon-greedy exploration helps the agent discover
@@ -28,12 +31,7 @@ from stable_baselines3.common.callbacks import (
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-
-class _IntActionWrapper(gym.Wrapper):
-    """Coerce actions to Python int — required by nasim >= 0.10 with NumPy 2.x."""
-
-    def step(self, action):
-        return self.env.step(int(action))
+from agents.wrappers import IntActionWrapper
 
 
 class EpisodeStatsCallback(BaseCallback):
@@ -115,7 +113,7 @@ class DQNAttackAgent:
         seed: int = 42,
         device: str = "auto",
     ) -> None:
-        self.env = Monitor(_IntActionWrapper(env))
+        self.env = Monitor(IntActionWrapper(env))
         self.seed = seed
 
         if policy_kwargs is None:

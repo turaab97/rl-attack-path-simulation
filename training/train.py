@@ -3,6 +3,9 @@ train.py
 --------
 Main training entry point for RL attack-path simulation.
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 Usage (CLI)
 ===========
 python -m training.train --agent ppo --stealth --timesteps 500000
@@ -36,6 +39,7 @@ def _make_environments(
     detection_threshold: float,
     detection_cost_per_step: float,
     caught_penalty: float,
+    alpha: float,
 ) -> tuple:
     """Return (train_env, eval_env)."""
     train_env = make_env(scenario_name=scenario_name, stealth=stealth)
@@ -47,12 +51,14 @@ def _make_environments(
             detection_threshold=detection_threshold,
             detection_cost_per_step=detection_cost_per_step,
             caught_penalty=caught_penalty,
+            alpha=alpha,
         )
         eval_env = make_stealth_env(
             eval_env,
             detection_threshold=detection_threshold,
             detection_cost_per_step=detection_cost_per_step,
             caught_penalty=caught_penalty,
+            alpha=alpha,
         )
     return train_env, eval_env
 
@@ -71,6 +77,7 @@ def train_agent(
     detection_threshold: float = 0.8,
     detection_cost_per_step: float = 0.1,
     caught_penalty: float = -100.0,
+    alpha: float = 1.0,
     seed: int = 42,
     eval_freq: int = 10_000,
     n_eval_episodes: int = 10,
@@ -90,12 +97,25 @@ def train_agent(
         Training budget in environment steps.
     output_dir : str
         Root directory for saving models and logs.
+    detection_threshold : float
+        Cumulative detection threshold (stealth mode only).
+    detection_cost_per_step : float
+        Detection cost per active step (stealth mode only).
+    caught_penalty : float
+        Penalty when agent is caught (stealth mode only).
+    alpha : float
+        Reward penalty coefficient (stealth mode only).
+    seed : int
+        Random seed for reproducibility.
+    eval_freq : int
+        Evaluate every N timesteps.
+    n_eval_episodes : int
+        Episodes per evaluation round.
 
     Returns
     -------
     dict
-        Training metadata: agent, scenario, stealth, timesteps, save_path,
-        wall_time_seconds.
+        Training metadata including full hyperparameters.
     """
     tag = f"{agent_type}_{'stealth' if stealth else 'baseline'}"
     save_dir = Path(output_dir) / tag
@@ -112,6 +132,7 @@ def train_agent(
         detection_threshold=detection_threshold,
         detection_cost_per_step=detection_cost_per_step,
         caught_penalty=caught_penalty,
+        alpha=alpha,
     )
 
     tb_log = str(save_dir / "tensorboard")
@@ -148,7 +169,26 @@ def train_agent(
     model_path = str(save_dir / "final_model")
     agent.save(model_path)
 
-    # Persist metadata
+    # Persist full metadata including hyperparameters for reproducibility
+    agent_hparams = {
+        k: v for k, v in agent.model.__dict__.items()
+        if k in {
+            "learning_rate", "n_steps", "batch_size", "n_epochs",
+            "gamma", "gae_lambda", "clip_range", "ent_coef",
+            "buffer_size", "learning_starts", "tau", "train_freq",
+            "gradient_steps", "target_update_interval",
+            "exploration_fraction", "exploration_initial_eps",
+            "exploration_final_eps",
+        }
+    }
+    # SB3 stores some values as schedules; convert to float for JSON
+    for k, v in agent_hparams.items():
+        if callable(v):
+            try:
+                agent_hparams[k] = float(v(1.0))
+            except Exception:
+                agent_hparams[k] = str(v)
+
     meta = {
         "agent": agent_type,
         "scenario": scenario_name or "custom_ai_infra",
@@ -158,6 +198,16 @@ def train_agent(
         "save_dir": str(save_dir),
         "model_path": model_path + ".zip",
         "seed": seed,
+        "eval_freq": eval_freq,
+        "n_eval_episodes": n_eval_episodes,
+        "stealth_params": {
+            "detection_threshold": detection_threshold,
+            "detection_cost_per_step": detection_cost_per_step,
+            "caught_penalty": caught_penalty,
+            "alpha": alpha,
+        } if stealth else None,
+        "hyperparameters": agent_hparams,
+        "net_arch": [256, 256],
     }
     with open(save_dir / "train_meta.json", "w") as f:
         json.dump(meta, f, indent=2)
@@ -178,7 +228,13 @@ def run_comparison(
     stealth: bool = False,
     total_timesteps: int = 300_000,
     output_dir: str = "results",
+    detection_threshold: float = 0.8,
+    detection_cost_per_step: float = 0.1,
+    caught_penalty: float = -100.0,
+    alpha: float = 1.0,
     seed: int = 42,
+    eval_freq: int = 10_000,
+    n_eval_episodes: int = 10,
 ) -> dict:
     """
     Train both PPO and DQN under the same conditions and save a comparison
@@ -189,22 +245,22 @@ def run_comparison(
     dict
         {'ppo': meta_dict, 'dqn': meta_dict}
     """
-    ppo_meta = train_agent(
-        agent_type="ppo",
+    shared_kwargs = dict(
         scenario_name=scenario_name,
         stealth=stealth,
         total_timesteps=total_timesteps,
         output_dir=output_dir,
+        detection_threshold=detection_threshold,
+        detection_cost_per_step=detection_cost_per_step,
+        caught_penalty=caught_penalty,
+        alpha=alpha,
         seed=seed,
+        eval_freq=eval_freq,
+        n_eval_episodes=n_eval_episodes,
     )
-    dqn_meta = train_agent(
-        agent_type="dqn",
-        scenario_name=scenario_name,
-        stealth=stealth,
-        total_timesteps=total_timesteps,
-        output_dir=output_dir,
-        seed=seed,
-    )
+
+    ppo_meta = train_agent(agent_type="ppo", **shared_kwargs)
+    dqn_meta = train_agent(agent_type="dqn", **shared_kwargs)
 
     comparison = {"ppo": ppo_meta, "dqn": dqn_meta}
     out_path = Path(output_dir) / "comparison_summary.json"
@@ -261,10 +317,40 @@ def _parse_args() -> argparse.Namespace:
         help="Detection threshold for stealth wrapper (default: 0.8).",
     )
     p.add_argument(
+        "--detection_cost",
+        type=float,
+        default=0.1,
+        help="Detection cost per active step (default: 0.1).",
+    )
+    p.add_argument(
+        "--caught_penalty",
+        type=float,
+        default=-100.0,
+        help="Penalty when attacker is caught (default: -100.0).",
+    )
+    p.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Stealth penalty coefficient (default: 1.0).",
+    )
+    p.add_argument(
         "--seed",
         type=int,
         default=42,
         help="Random seed (default: 42).",
+    )
+    p.add_argument(
+        "--eval_freq",
+        type=int,
+        default=10_000,
+        help="Evaluate every N timesteps (default: 10000).",
+    )
+    p.add_argument(
+        "--n_eval_episodes",
+        type=int,
+        default=10,
+        help="Episodes per evaluation round (default: 10).",
     )
     return p.parse_args()
 
@@ -273,23 +359,24 @@ def main() -> None:
     """CLI entry point (also registered as ``train-agent`` console script)."""
     args = _parse_args()
 
+    common_kwargs = dict(
+        scenario_name=args.scenario,
+        stealth=args.stealth,
+        total_timesteps=args.timesteps,
+        output_dir=args.output_dir,
+        detection_threshold=args.detection_threshold,
+        detection_cost_per_step=args.detection_cost,
+        caught_penalty=args.caught_penalty,
+        alpha=args.alpha,
+        seed=args.seed,
+        eval_freq=args.eval_freq,
+        n_eval_episodes=args.n_eval_episodes,
+    )
+
     if args.compare:
-        run_comparison(
-            scenario_name=args.scenario,
-            stealth=args.stealth,
-            total_timesteps=args.timesteps,
-            output_dir=args.output_dir,
-            seed=args.seed,
-        )
+        run_comparison(**common_kwargs)
     else:
-        train_agent(
-            agent_type=args.agent,
-            scenario_name=args.scenario,
-            stealth=args.stealth,
-            total_timesteps=args.timesteps,
-            output_dir=args.output_dir,
-            seed=args.seed,
-        )
+        train_agent(agent_type=args.agent, **common_kwargs)
 
 
 if __name__ == "__main__":
