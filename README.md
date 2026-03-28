@@ -5,7 +5,6 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
 [![Stable-Baselines3](https://img.shields.io/badge/SB3-2.3%2B-orange)](https://stable-baselines3.readthedocs.io/)
 [![NASim](https://img.shields.io/badge/NASim-0.10%2B-green)](https://networkattacksimulator.readthedocs.io/)
-[![CI](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
 ---
