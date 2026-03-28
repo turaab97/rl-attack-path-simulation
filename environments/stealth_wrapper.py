@@ -4,23 +4,29 @@ stealth_wrapper.py
 Gymnasium-compatible wrapper that adds stealth-aware reward shaping on top
 of any NASim environment.
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 Design
 ======
-Each exploit action has an associated *detection cost* (default = 0.1 per
-action).  The wrapper maintains a cumulative detection score for the episode.
-When the score exceeds `detection_threshold`, the episode is terminated early
-with a large negative reward (the attacker has been caught).
+Each *active* action (exploit, scan, privilege escalation) carries a detection
+cost that accumulates over the episode.  When the cumulative score exceeds
+``detection_threshold``, the episode terminates early with a large negative
+reward (the attacker has been caught by the defender's SOC/IDS).
 
-The modified reward at each step is:
-    r' = r_env  –  alpha * detection_cost
+The modified reward on **active** steps is::
 
-where:
-  r_env           = raw NASim reward (positive on first host compromise)
-  alpha           = penalty coefficient (default 1.0)
-  detection_cost  = per-step detection increment (default 0.1)
+    r' = r_env  -  alpha * detection_cost_per_step
 
-This models a sophisticated adversary who must balance progress against the
-risk of triggering the defender's detection controls.
+On **idle** steps (action index 0, no state change) the reward is passed
+through unmodified and detection does not accumulate.  This ensures the
+penalty signal is consistent with the detection accumulation logic.
+
+Variables
+---------
+  r_env                  = raw NASim reward (positive on first host compromise)
+  alpha                  = penalty coefficient (default 1.0)
+  detection_cost_per_step = per-active-step detection increment (default 0.1)
 """
 
 from __future__ import annotations
@@ -87,14 +93,17 @@ class StealthAwareWrapper(gym.Wrapper):
 
         self._steps += 1
 
-        # Accumulate detection risk on every exploit/scan action
-        # (NASim returns r=0 for no-ops; we only penalise active steps)
+        # An action is "active" (generates detection risk) when the agent
+        # performs an exploit, scan, or priv-esc — not when it idles.
+        # NASim uses action 0 as the noop and returns reward == 0 for it.
         is_active = reward != 0 or action != 0
+
         if is_active:
             self._cumulative_detection += self.detection_cost_per_step
+            shaped_reward = reward - self.alpha * self.detection_cost_per_step
+        else:
+            shaped_reward = reward
 
-        # Stealth-shaped reward
-        shaped_reward = reward - self.alpha * self.detection_cost_per_step
         self._episode_rewards.append(shaped_reward)
 
         # Check if attacker was caught
