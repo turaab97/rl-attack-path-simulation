@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
 [![Stable-Baselines3](https://img.shields.io/badge/SB3-2.3%2B-orange)](https://stable-baselines3.readthedocs.io/)
-[![NASim](https://img.shields.io/badge/NASim-0.3%2B-green)](https://networkattacksimulator.readthedocs.io/)
+[![NASim](https://img.shields.io/badge/NASim-0.10%2B-green)](https://networkattacksimulator.readthedocs.io/)
 [![CI](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
 
@@ -37,13 +37,13 @@ This project addresses that gap using **Reinforcement Learning**. An RL agent ac
 | PPO agent (Stable-Baselines3) | Implemented |
 | DQN agent (Stable-Baselines3) | Implemented |
 | Training & evaluation CLI harness | Implemented |
+| Attack path interpretation & analysis | Implemented |
 | Visualisation / plotting utilities | Implemented |
-| Unit & smoke tests | Implemented |
+| Docker containerised training pipeline | Implemented |
+| Unit & integration tests | Implemented |
 | GitHub Actions CI | Implemented |
 | Full training runs + saved models | In Progress |
 | Exploratory notebooks | Planned |
-| Extended documentation | Planned |
-| Multi-agent attacker/defender extension | Planned |
 
 ---
 
@@ -53,10 +53,10 @@ This project addresses that gap using **Reinforcement Learning**. An RL agent ac
 Subnet 0 (Attacker)
     │
     ▼
-Subnet 1 — DMZ (Web, Email)
+Subnet 1 — DMZ (Web, Email, DNS)
     │
     ▼
-Subnet 2 — Corporate LAN (Workstations, AD)
+Subnet 2 — Corporate LAN (Workstations, AD, Internal Services)
     │
     ▼
 Subnet 3 — AI Infrastructure  ◄─── HIGH VALUE
@@ -68,7 +68,7 @@ Subnet 4 — Data Lake           ◄─── HIGHEST VALUE
         Training Data           (reward: 300)
 ```
 
-The attacker starts at the internet boundary and must pivot through firewalled subnets using scan → exploit → privilege-escalation chains.
+The attacker starts at the internet boundary and must pivot through firewalled subnets using scan → exploit → privilege-escalation chains. Firewall rules restrict lateral movement: the LLM API Server only accepts HTTP from one corporate host and SSH from another, forcing the agent to discover and exploit specific pivot chains.
 
 ---
 
@@ -78,36 +78,40 @@ The attacker starts at the internet boundary and must pivot through firewalled s
 rl-attack-path-simulation/
 │
 ├── environments/
-│   ├── network_config.py       # NASim scenario: 5 subnets, AI-infra hosts
-│   └── stealth_wrapper.py      # Gymnasium wrapper with detection tracking
+│   ├── network_config.py       # NASim YAML scenario: 5 subnets, 12 hosts, AI-infra targets
+│   └── stealth_wrapper.py      # Gymnasium wrapper: detection tracking + reward shaping
 │
 ├── agents/
 │   ├── ppo_agent.py            # PPO attacker (Stable-Baselines3)
-│   └── dqn_agent.py            # DQN attacker (Stable-Baselines3)
+│   ├── dqn_agent.py            # DQN attacker (Stable-Baselines3)
+│   └── wrappers.py             # Shared action wrapper (NASim int coercion)
 │
 ├── training/
-│   ├── train.py                # Training entry point (CLI + API)
-│   └── evaluate.py             # Evaluation & comparison harness
+│   ├── train.py                # Training entry point (CLI + API, full hyperparams)
+│   └── evaluate.py             # Evaluation: goal-based success rate, per-episode metrics
 │
 ├── analysis/
-│   └── visualize.py            # Training curves, attack paths, sensitivity plots
-│
-├── configs/
-│   ├── ppo_config.yaml         # PPO hyperparameters
-│   └── dqn_config.yaml         # DQN hyperparameters
+│   ├── attack_path.py          # Action→host mapping, pivot analysis, path interpretation
+│   └── visualize.py            # Training curves, comparison bars, sensitivity plots
 │
 ├── tests/
-│   ├── test_environment.py     # Environment & wrapper unit tests
-│   └── test_agents.py          # Agent smoke tests
+│   ├── test_environment.py     # NASim built-in env & stealth wrapper tests
+│   ├── test_custom_env.py      # Custom AI-infra topology tests
+│   ├── test_agents.py          # PPO & DQN smoke tests (train, predict, save/load)
+│   ├── test_evaluation.py      # Evaluation harness tests
+│   ├── test_attack_path.py     # Action mapping & path analysis tests
+│   └── test_visualize.py       # Plot generation smoke tests
 │
-├── notebooks/                  # Exploratory notebooks (planned)
-├── docs/                       # Extended documentation (planned)
-├── results/                    # Saved models, logs, plots (git-ignored)
-├── .github/workflows/ci.yml    # GitHub Actions CI
+├── scripts/
+│   └── entrypoint.sh           # Docker entrypoint dispatcher
+│
+├── Dockerfile                  # Python 3.12 container with all deps
+├── docker-compose.yml          # Services: train, evaluate, visualize, test
+├── .dockerignore
+├── .github/workflows/ci.yml    # GitHub Actions CI (lint + test)
 ├── pyproject.toml              # black / isort / pytest config
-├── .flake8                     # flake8 config
-├── requirements.txt
-├── setup.py
+├── setup.py                    # Package definition with console_scripts
+├── results/                    # Saved models, logs, plots (git-ignored)
 └── README.md
 ```
 
@@ -121,71 +125,99 @@ rl-attack-path-simulation/
 
 | Component | Description |
 |---|---|
-| **State** | Flat vector: per-host discovery, access level, compromise status + global detection score |
+| **State** | Flat vector: per-host discovery, access level, compromise status |
 | **Actions** | Discrete: `(host, action_type)` pairs — scan, exploit, privilege escalation |
-| **Rewards** | +value on **first** compromise; penalty for invalid actions |
-| **Preconditions** | NASim enforces action preconditions natively |
+| **Rewards** | +value on **first** compromise of each host; penalty for invalid actions |
+| **Preconditions** | NASim enforces action preconditions natively; invalid actions return penalty with no state change |
 
 ### Reward Variants
 
 | Variant | Reward Signal |
 |---|---|
 | **Baseline** | Raw NASim rewards only |
-| **Stealth-aware** | Raw reward − α × detection cost; episode terminates if cumulative detection ≥ threshold |
+| **Stealth-aware** | On active steps: `r' = r_env − α × detection_cost`; idle steps pass through unmodified. Episode terminates if cumulative detection ≥ threshold |
 
-The stealth reward models a sophisticated adversary that must balance progress against triggering the defender's detection controls.
+The stealth reward models a sophisticated adversary who must balance progress against triggering the defender's detection controls. Detection only accumulates on active steps (scan, exploit, priv-esc), not idle actions.
 
 ### Agents
 
 | Agent | Algorithm | Key Hyperparameters |
 |---|---|---|
-| PPO | Proximal Policy Optimization | lr=3e-4, n_steps=2048, clip=0.2, ent=0.01 |
-| DQN | Deep Q-Network | lr=1e-4, buffer=100k, ε-decay over 20% of training |
+| PPO | Proximal Policy Optimization | lr=3e-4, n_steps=2048, clip=0.2, ent=0.01, γ=0.99 |
+| DQN | Deep Q-Network | lr=1e-4, buffer=100k, ε: 1.0→0.05 over 20% of training, γ=0.99 |
 
-Both use a 2-layer MLP (256×256) as their function approximator.
+Both use a 2-layer MLP (256×256) and are trained with identical environments, seeds, and evaluation protocols for a fair comparison.
+
+### Evaluation Metrics
+
+| Metric | Definition |
+|---|---|
+| **Success Rate** | Fraction of episodes where total reward ≥ 100 (agent reached AI infrastructure) |
+| **Catch Rate** | Fraction of episodes terminated by detection (stealth mode only) |
+| **Mean Reward** | Average episode return across evaluation episodes |
+| **Mean Steps** | Average episode length |
 
 ---
 
 ## Quickstart
 
-### 1. Installation
+### Option A: Docker (Recommended)
+
+No local Python setup needed — all dependencies are baked into the container.
 
 ```bash
 # Clone the repo
 git clone https://github.com/turaab97/rl-attack-path-simulation.git
 cd rl-attack-path-simulation
 
-# Create a virtual environment (recommended)
+# Train baseline PPO + DQN comparison (500k steps each)
+docker compose run train
+
+# Train stealth mode comparison
+docker compose run train-stealth
+
+# Evaluate saved models (100 episodes each)
+docker compose run evaluate
+
+# Generate plots
+docker compose run visualize
+
+# Run test suite
+docker compose run test
+```
+
+Results are persisted to `./results/` on the host via a bind mount.
+
+### Option B: Local Installation
+
+```bash
+# Requires Python 3.10–3.12 (PyTorch does not support 3.13 yet)
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Or install as an editable package (includes dev tools)
+# Install as editable package with dev tools
 pip install -e ".[dev]"
 ```
 
-### 2. Train a Single Agent
+### Train a Single Agent
 
 ```bash
-# Train PPO — baseline reward, 500k steps
+# PPO baseline, 500k steps
 python -m training.train --agent ppo --timesteps 500000
 
-# Train DQN with stealth reward
-python -m training.train --agent dqn --stealth --timesteps 500000
+# DQN with stealth reward and custom detection parameters
+python -m training.train --agent dqn --stealth \
+    --timesteps 500000 \
+    --detection_threshold 0.8 \
+    --detection_cost 0.1 \
+    --caught_penalty -100.0 \
+    --alpha 1.0
 
-# Use a built-in NASim scenario instead of the custom AI-infra topology
-python -m training.train --agent ppo --scenario small-linear
+# Compare both agents under the same conditions
+python -m training.train --compare --timesteps 300000
 ```
 
-### 3. Train and Compare Both Agents
-
-```bash
-python -m training.train --compare --timesteps 300000 --output_dir results/comparison
-```
-
-### 4. Evaluate Trained Agents
+### Evaluate Trained Agents
 
 ```bash
 python -m training.evaluate \
@@ -194,66 +226,24 @@ python -m training.evaluate \
     --episodes 100
 ```
 
-### 5. Generate Visualisations
+### Generate Visualisations
 
 ```bash
 python -m analysis.visualize --results_dir results/ --output_dir results/plots
 ```
 
-### 6. Monitor Training with TensorBoard
+### Monitor Training with TensorBoard
 
 ```bash
 tensorboard --logdir results/
 ```
 
-### 7. Run Tests
+### Run Tests
 
 ```bash
 pytest tests/ -v
-# With coverage
 pytest tests/ --cov=. --cov-report=html
 ```
-
----
-
-## Reproducibility
-
-| Item | Value |
-|---|---|
-| Python version | 3.10+ (tested on 3.10) |
-| Key dependencies | See `requirements.txt` |
-| Default random seed | `42` (pass `--seed` to override) |
-| Hardware | CPU sufficient for smoke runs; GPU speeds up 500k-step training |
-
-**Seeding note:** RL experiments have multiple sources of randomness (PyTorch, NumPy, NASim). The `seed` parameter is forwarded to SB3, which seeds PyTorch and NumPy internally. For fully reproducible results, set `--seed` explicitly. The default `DummyVecEnv` is single-threaded and deterministic given the same seed.
-
-```bash
-# Fully reproducible training run
-python -m training.train --agent ppo --timesteps 500000 --seed 42
-```
-
----
-
-## Configuration
-
-All hyperparameters live in `configs/`:
-
-```yaml
-# configs/ppo_config.yaml (excerpt)
-hyperparameters:
-  learning_rate: 3.0e-4
-  n_steps: 2048
-  gamma: 0.99
-  ent_coef: 0.01        # Higher = more exploration
-
-stealth:
-  enabled: false
-  detection_threshold: 0.8
-  detection_cost_per_step: 0.1
-  caught_penalty: -100.0
-```
-
-Override any value via CLI flags (see `python -m training.train --help`).
 
 ---
 
@@ -261,15 +251,15 @@ Override any value via CLI flags (see `python -m training.train --help`).
 
 ```python
 from environments.stealth_wrapper import make_stealth_env
-import nasim
+from environments.network_config import make_env
 
-base_env = nasim.make("small-linear")
+base_env = make_env()  # Custom AI-infra topology
 env = make_stealth_env(
     base_env,
     detection_threshold=0.8,      # Episode ends if cumulative risk >= this
-    detection_cost_per_step=0.1,  # Risk added per active step
-    caught_penalty=-100.0,        # Terminal reward when caught
-    alpha=1.0,                    # Detection cost multiplier
+    detection_cost_per_step=0.1,   # Risk added per active step
+    caught_penalty=-100.0,         # Terminal reward when caught
+    alpha=1.0,                     # Detection cost multiplier
 )
 
 obs, info = env.reset()
@@ -278,52 +268,48 @@ obs, reward, terminated, truncated, info = env.step(action)
 
 print(info["cumulative_detection"])   # Current detection risk
 print(info["caught"])                 # Whether attacker was caught
-print(env.stealth_budget_remaining)   # Budget remaining (1.0 -> 0.0)
+print(env.stealth_budget_remaining)   # Budget remaining (1.0 → 0.0)
 ```
 
 ---
 
-## Python API
+## Attack Path Analysis
 
 ```python
-# Train PPO programmatically
-from training.train import train_agent
-
-meta = train_agent(
-    agent_type="ppo",
-    stealth=True,
-    total_timesteps=500_000,
-    output_dir="results/my_run",
-)
-
-# Load and evaluate
-from agents.ppo_agent import PPOAttackAgent
+from analysis.attack_path import build_action_map, interpret_path, find_common_pivots
 from environments.network_config import make_env
-from environments.stealth_wrapper import make_stealth_env
 
-env = make_stealth_env(make_env())
-agent = PPOAttackAgent.load("results/my_run/ppo_stealth/final_model", env)
-result = agent.run_episode(env, deterministic=True)
-print(result)
-# {'total_reward': 450.0, 'steps': 23, 'path': [...], 'caught': False, 'cumulative_detection': 0.6}
+env = make_env()
+action_map = build_action_map(env)
+
+# After running evaluation episodes:
+# paths = [episode["path"] for episode in eval_results["per_episode"]]
+# pivots = find_common_pivots(paths, action_map, top_n=5)
+# → [("Web Server", 87), ("Dev Server", 64), ("LLM API Server", 52), ...]
+```
+
+This directly answers the security question: **which hosts serve as stepping stones to AI infrastructure?**
+
+---
+
+## Reproducibility
+
+| Item | Value |
+|---|---|
+| Python version | 3.10–3.12 (Docker uses 3.12) |
+| Key dependencies | See `setup.py` |
+| Default random seed | `42` (pass `--seed` to override) |
+| Hardware | CPU sufficient; GPU speeds up longer training runs |
+
+All hyperparameters, stealth parameters, and seeds are saved to `train_meta.json` after each training run for full reproducibility.
+
+```bash
+python -m training.train --agent ppo --timesteps 500000 --seed 42
 ```
 
 ---
 
-## Expected Results
-
-Training for 500k timesteps on the custom AI-infra topology:
-
-| Agent | Mode | Mean Reward | Success Rate | Mean Steps |
-|---|---|---|---|---|
-| PPO | Baseline | ~450 | ~85% | ~22 |
-| DQN | Baseline | ~410 | ~78% | ~26 |
-| PPO | Stealth | ~280 | ~62% | ~31 |
-| DQN | Stealth | ~250 | ~55% | ~35 |
-
-*(Indicative — actual values depend on hardware and seed.)*
-
-### Output Artifacts
+## Output Artifacts
 
 After a training run, `results/` contains:
 
@@ -332,7 +318,7 @@ results/
 ├── ppo_baseline/
 │   ├── final_model.zip          # Saved PPO weights
 │   ├── best_model.zip           # Best checkpoint by eval reward
-│   ├── train_meta.json          # Run metadata (timesteps, seed, wall time)
+│   ├── train_meta.json          # Full hyperparameters, seed, stealth params, wall time
 │   └── tensorboard/             # TensorBoard logs
 ├── dqn_baseline/
 │   └── ...                      # Same structure
@@ -344,46 +330,63 @@ results/
     └── detection_sensitivity.png  # Success rate vs detection threshold
 ```
 
-> Trained models and plots are `.gitignore`d. Run the training pipeline locally to generate them.
+> Trained models and plots are `.gitignore`d. Run the training pipeline locally or via Docker to generate them.
 
 ---
 
-## Key Findings
+## CLI Reference
 
-- **PPO converges faster** than DQN on this environment, benefiting from on-policy data.
-- **Stealth reward significantly reduces success rate**, confirming that detection controls matter.
-- The **Data Lake (Subnet 4)** is the hardest target; the LLM API Server (Subnet 3, host 0) is typically the first AI asset compromised.
-- Reducing `detection_threshold` below 0.4 renders both agents effectively non-functional.
+```bash
+# Training
+python -m training.train --help
+  --agent {ppo,dqn}             Algorithm (default: ppo)
+  --stealth                     Enable stealth wrapper
+  --timesteps N                 Training budget (default: 500000)
+  --compare                     Train both PPO and DQN
+  --detection_threshold FLOAT   Detection threshold (default: 0.8)
+  --detection_cost FLOAT        Cost per active step (default: 0.1)
+  --caught_penalty FLOAT        Caught penalty (default: -100.0)
+  --alpha FLOAT                 Penalty coefficient (default: 1.0)
+  --seed INT                    Random seed (default: 42)
+  --eval_freq INT               Eval every N steps (default: 10000)
+  --n_eval_episodes INT         Episodes per eval (default: 10)
+  --output_dir PATH             Output directory (default: results/)
+
+# Evaluation
+python -m training.evaluate --help
+  --ppo_model PATH              PPO model path (required)
+  --dqn_model PATH              DQN model path (required)
+  --stealth                     Evaluate with stealth wrapper
+  --episodes INT                Eval episodes (default: 100)
+  --detection_threshold FLOAT   (default: 0.8)
+  --detection_cost FLOAT        (default: 0.1)
+  --caught_penalty FLOAT        (default: -100.0)
+  --alpha FLOAT                 (default: 1.0)
+```
 
 ---
 
 ## Developer Tooling
 
 ```bash
-# Format code
-black .
-
-# Sort imports
-isort .
-
-# Lint
-flake8 .
-
-# Test with coverage
-pytest tests/ --cov=. --cov-report=html
+black .          # Format code
+isort .          # Sort imports
+flake8 .         # Lint
+pytest tests/ -v # Run tests
 ```
 
-Configuration lives in `pyproject.toml` and `.flake8`.
+Configuration lives in `pyproject.toml`.
 
 ---
 
 ## Future Work
 
+- **Detection sensitivity sweep** — vary `detection_threshold` and plot success rate for both agents to find the optimal monitoring level.
 - **Richer NASim scenarios** — model lateral movement through cloud-native AI pipelines (Kubernetes, S3, MLflow serving).
-- **Reward shaping experiments** — explore curriculum learning: start with a low detection threshold and anneal upward as the agent improves.
-- **Multi-agent extension** — add a defender agent that dynamically patches vulnerabilities, enabling adversarial co-training (attacker vs. defender).
+- **Reward shaping experiments** — curriculum learning: start with a low detection threshold and anneal upward as the agent improves.
+- **Multi-agent extension** — add a defender agent that dynamically patches vulnerabilities, enabling adversarial co-training.
 - **Partial observability** — restrict the attacker's observation to only discovered hosts, closer to real-world conditions.
-- **Transfer learning** — pre-train on simple NASim built-in scenarios, then fine-tune on the custom AI-infra topology.
+- **Cloud deployment** — run as a scheduled container job (e.g. AWS ECS, Azure Container Instances) triggered by network configuration changes for continuous attack-path assessment.
 
 ---
 
