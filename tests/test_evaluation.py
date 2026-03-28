@@ -8,7 +8,6 @@ Course: MMAI 845 – Reinforcement Learning
 """
 
 import numpy as np
-import pytest
 
 
 class TestEvaluateAgent:

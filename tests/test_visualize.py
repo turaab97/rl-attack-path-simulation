@@ -10,8 +10,6 @@ Course: MMAI 845 – Reinforcement Learning
 import json
 from pathlib import Path
 
-import pytest
-
 
 class TestPlotComparisonBar:
     def test_generates_png(self, tmp_path):

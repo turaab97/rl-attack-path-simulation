@@ -7,8 +7,6 @@ Author: Syed Ali Turab
 Course: MMAI 845 – Reinforcement Learning
 """
 
-import pytest
-
 from analysis.attack_path import (
     _classify_action,
     build_action_map,

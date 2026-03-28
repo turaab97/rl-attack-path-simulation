@@ -10,7 +10,6 @@ Course: MMAI 845 – Reinforcement Learning
 """
 
 import gymnasium as gym
-import numpy as np
 import pytest
 
 from environments.network_config import AI_INFRA_HOSTS, build_network_scenario, make_env

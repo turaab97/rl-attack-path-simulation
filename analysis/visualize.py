@@ -298,12 +298,11 @@ def generate_full_report(
     """
     Attempt to generate all standard plots from saved JSON evaluation files.
 
-    Looks for ``eval_results.json`` and ``comparison_summary.json`` in
-    `results_dir`, then calls the individual plot functions.
+    Looks for ``eval_results.json`` in `results_dir` and calls the
+    individual plot functions.
     """
     rdir = Path(results_dir)
     eval_path = rdir / "eval_results.json"
-    comp_path = rdir / "comparison_summary.json"
 
     # Comparison bar chart — only use eval_results.json which has the right
     # metric keys (mean_reward, success_rate, etc.).  comparison_summary.json

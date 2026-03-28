@@ -30,7 +30,7 @@ import numpy as np
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
-from environments.network_config import AI_INFRA_HOSTS, make_env
+from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
 # Reward thresholds for sensitive hosts — used to determine whether the
