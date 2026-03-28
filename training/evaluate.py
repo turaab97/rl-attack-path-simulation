@@ -3,6 +3,9 @@ evaluate.py
 -----------
 Evaluation harness for trained PPO / DQN attack-path agents.
 
+Author: Syed Ali Turab
+Course: MMAI 845 – Reinforcement Learning
+
 Usage (CLI)
 ===========
 python -m training.evaluate \\
@@ -13,8 +16,7 @@ python -m training.evaluate \\
 Outputs
 =======
 * Console summary table
-* results/eval_results.json  (per-episode metrics)
-* results/eval_summary.json  (aggregate statistics)
+* results/eval_results.json  (per-episode and aggregate metrics)
 """
 
 from __future__ import annotations
@@ -28,8 +30,14 @@ import numpy as np
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
-from environments.network_config import make_env
+from environments.network_config import AI_INFRA_HOSTS, make_env
 from environments.stealth_wrapper import make_stealth_env
+
+# Reward thresholds for sensitive hosts — used to determine whether the
+# agent actually compromised AI infrastructure vs just wandering around.
+_SENSITIVE_HOST_TOTAL_VALUE = sum(v for _, v in [
+    ((3, 0), 200), ((3, 1), 200), ((3, 2), 150), ((4, 0), 300),
+])  # = 850
 
 # ---------------------------------------------------------------------------
 # Core evaluation function
@@ -66,13 +74,21 @@ def evaluate_agent(
     steps_list = []
     caught_list = []
     detection_list = []
+    goal_reached_list = []
     per_episode = []
+
+    # A reward above this fraction of the total sensitive-host value
+    # indicates the agent reached AI infrastructure (not just DMZ/LAN).
+    ai_reward_threshold = 100.0
 
     for ep in range(n_episodes):
         result = agent.run_episode(env, deterministic=deterministic)
         rewards.append(result["total_reward"])
         steps_list.append(result["steps"])
         caught_list.append(int(result.get("caught", False)))
+        goal_reached_list.append(
+            int(result["total_reward"] >= ai_reward_threshold)
+        )
         if result.get("cumulative_detection") is not None:
             detection_list.append(result["cumulative_detection"])
         per_episode.append(result)
@@ -86,7 +102,7 @@ def evaluate_agent(
         "mean_steps": float(np.mean(steps_list)),
         "std_steps": float(np.std(steps_list)),
         "catch_rate": float(np.mean(caught_list)),
-        "success_rate": float(1.0 - np.mean(caught_list)),
+        "success_rate": float(np.mean(goal_reached_list)),
         "mean_cumulative_detection": float(np.mean(detection_list)) if detection_list else None,
         "per_episode": per_episode,
     }
@@ -183,7 +199,7 @@ def _print_comparison(ppo: dict, dqn: dict, stealth: bool = False) -> None:
         ("Mean Reward", "mean_reward", ".2f"),
         ("Std Reward", "std_reward", ".2f"),
         ("Mean Steps", "mean_steps", ".1f"),
-        ("Success Rate (%)", "success_rate", ".1%"),
+        ("Goal Reached (%)", "success_rate", ".1%"),
         ("Catch Rate (%)", "catch_rate", ".1%"),
         ("Mean Detection", "mean_cumulative_detection", ".3f"),
     ]

@@ -58,7 +58,10 @@ class TestBaseEnvironment:
     def test_reset_returns_valid_observation(self, base_env):
         obs, info = base_env.reset()
         assert obs is not None
-        assert base_env.observation_space.contains(obs.astype(np.float32)) or True
+        assert base_env.observation_space.contains(obs.astype(np.float32)), (
+            f"Observation dtype {obs.dtype} not in space; "
+            f"expected {base_env.observation_space.dtype}"
+        )
         assert isinstance(info, dict)
 
     def test_step_returns_five_tuple(self, base_env):
