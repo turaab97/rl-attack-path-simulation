@@ -17,7 +17,6 @@ from typing import Any
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # NASim action-space mapping
 # ---------------------------------------------------------------------------
@@ -83,31 +82,39 @@ def build_action_map(env) -> list[dict[str, Any]]:
             # NASim actions have: name, target (subnet, host), cost
             subnet = act.get("subnet", -1) if isinstance(act, dict) else getattr(act, "subnet", -1)
             host = act.get("host", -1) if isinstance(act, dict) else getattr(act, "host", -1)
-            name = act.get("name", "unknown") if isinstance(act, dict) else getattr(act, "name", "unknown")
+            name = (
+                act.get("name", "unknown")
+                if isinstance(act, dict)
+                else getattr(act, "name", "unknown")
+            )
 
             action_type = _classify_action(name)
             host_key = (subnet, host)
-            action_map.append({
-                "action_idx": idx,
-                "subnet": subnet,
-                "host": host,
-                "action_type": action_type,
-                "action_name": name,
-                "host_name": HOST_NAMES.get(host_key, f"host-{subnet}-{host}"),
-                "subnet_name": SUBNET_NAMES.get(subnet, f"subnet-{subnet}"),
-            })
+            action_map.append(
+                {
+                    "action_idx": idx,
+                    "subnet": subnet,
+                    "host": host,
+                    "action_type": action_type,
+                    "action_name": name,
+                    "host_name": HOST_NAMES.get(host_key, f"host-{subnet}-{host}"),
+                    "subnet_name": SUBNET_NAMES.get(subnet, f"subnet-{subnet}"),
+                }
+            )
     else:
         # Fallback: generate generic labels
         for idx in range(n_actions):
-            action_map.append({
-                "action_idx": idx,
-                "subnet": -1,
-                "host": -1,
-                "action_type": "unknown",
-                "action_name": f"action_{idx}",
-                "host_name": "unknown",
-                "subnet_name": "unknown",
-            })
+            action_map.append(
+                {
+                    "action_idx": idx,
+                    "subnet": -1,
+                    "host": -1,
+                    "action_type": "unknown",
+                    "action_name": f"action_{idx}",
+                    "host_name": "unknown",
+                    "subnet_name": "unknown",
+                }
+            )
 
     return action_map
 

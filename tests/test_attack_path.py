@@ -45,6 +45,7 @@ class TestClassifyAction:
 class TestBuildActionMap:
     def test_returns_list(self):
         import nasim
+
         env = nasim.make_benchmark("small-linear")
         action_map = build_action_map(env)
         assert isinstance(action_map, list)
@@ -53,6 +54,7 @@ class TestBuildActionMap:
 
     def test_entries_have_required_keys(self):
         import nasim
+
         env = nasim.make_benchmark("small-linear")
         action_map = build_action_map(env)
         for entry in action_map:
@@ -65,13 +67,33 @@ class TestBuildActionMap:
 class TestInterpretPath:
     def test_interpret_simple_path(self):
         action_map = [
-            {"action_idx": 0, "action_type": "noop", "action_name": "noop",
-             "host_name": "none", "subnet_name": "none", "subnet": 0, "host": 0},
-            {"action_idx": 1, "action_type": "scan", "action_name": "subnet_scan",
-             "host_name": "Web Server", "subnet_name": "DMZ", "subnet": 1, "host": 0},
-            {"action_idx": 2, "action_type": "exploit", "action_name": "e_ssh",
-             "host_name": "LLM API Server", "subnet_name": "AI Infrastructure",
-             "subnet": 3, "host": 0},
+            {
+                "action_idx": 0,
+                "action_type": "noop",
+                "action_name": "noop",
+                "host_name": "none",
+                "subnet_name": "none",
+                "subnet": 0,
+                "host": 0,
+            },
+            {
+                "action_idx": 1,
+                "action_type": "scan",
+                "action_name": "subnet_scan",
+                "host_name": "Web Server",
+                "subnet_name": "DMZ",
+                "subnet": 1,
+                "host": 0,
+            },
+            {
+                "action_idx": 2,
+                "action_type": "exploit",
+                "action_name": "e_ssh",
+                "host_name": "LLM API Server",
+                "subnet_name": "AI Infrastructure",
+                "subnet": 3,
+                "host": 0,
+            },
         ]
 
         result = interpret_path([0, 1, 2, 1], action_map)
@@ -83,8 +105,15 @@ class TestInterpretPath:
 
     def test_out_of_range_action(self):
         action_map = [
-            {"action_idx": 0, "action_type": "noop", "action_name": "noop",
-             "host_name": "none", "subnet_name": "none", "subnet": 0, "host": 0},
+            {
+                "action_idx": 0,
+                "action_type": "noop",
+                "action_name": "noop",
+                "host_name": "none",
+                "subnet_name": "none",
+                "subnet": 0,
+                "host": 0,
+            },
         ]
         result = interpret_path([0, 999], action_map)
         assert len(result) == 2
@@ -94,12 +123,14 @@ class TestInterpretPath:
 class TestSummarisePath:
     def test_summary_structure(self):
         interpreted = [
-            {"step": 0, "action_type": "scan", "host_name": "Web Server",
-             "subnet_name": "DMZ"},
-            {"step": 1, "action_type": "exploit", "host_name": "Web Server",
-             "subnet_name": "DMZ"},
-            {"step": 2, "action_type": "exploit", "host_name": "LLM API Server",
-             "subnet_name": "AI Infrastructure"},
+            {"step": 0, "action_type": "scan", "host_name": "Web Server", "subnet_name": "DMZ"},
+            {"step": 1, "action_type": "exploit", "host_name": "Web Server", "subnet_name": "DMZ"},
+            {
+                "step": 2,
+                "action_type": "exploit",
+                "host_name": "LLM API Server",
+                "subnet_name": "AI Infrastructure",
+            },
         ]
         summary = summarise_path(interpreted)
         assert summary["total_steps"] == 3
@@ -112,13 +143,33 @@ class TestSummarisePath:
 class TestFindCommonPivots:
     def test_identifies_frequent_hosts(self):
         action_map = [
-            {"action_idx": 0, "action_type": "noop", "action_name": "noop",
-             "host_name": "none", "subnet_name": "none", "subnet": 0, "host": 0},
-            {"action_idx": 1, "action_type": "exploit", "action_name": "e_ssh",
-             "host_name": "Web Server", "subnet_name": "DMZ", "subnet": 1, "host": 0},
-            {"action_idx": 2, "action_type": "exploit", "action_name": "e_http",
-             "host_name": "LLM API Server", "subnet_name": "AI Infrastructure",
-             "subnet": 3, "host": 0},
+            {
+                "action_idx": 0,
+                "action_type": "noop",
+                "action_name": "noop",
+                "host_name": "none",
+                "subnet_name": "none",
+                "subnet": 0,
+                "host": 0,
+            },
+            {
+                "action_idx": 1,
+                "action_type": "exploit",
+                "action_name": "e_ssh",
+                "host_name": "Web Server",
+                "subnet_name": "DMZ",
+                "subnet": 1,
+                "host": 0,
+            },
+            {
+                "action_idx": 2,
+                "action_type": "exploit",
+                "action_name": "e_http",
+                "host_name": "LLM API Server",
+                "subnet_name": "AI Infrastructure",
+                "subnet": 3,
+                "host": 0,
+            },
         ]
         paths = [
             [1, 2],

@@ -171,13 +171,26 @@ def train_agent(
 
     # Persist full metadata including hyperparameters for reproducibility
     agent_hparams = {
-        k: v for k, v in agent.model.__dict__.items()
-        if k in {
-            "learning_rate", "n_steps", "batch_size", "n_epochs",
-            "gamma", "gae_lambda", "clip_range", "ent_coef",
-            "buffer_size", "learning_starts", "tau", "train_freq",
-            "gradient_steps", "target_update_interval",
-            "exploration_fraction", "exploration_initial_eps",
+        k: v
+        for k, v in agent.model.__dict__.items()
+        if k
+        in {
+            "learning_rate",
+            "n_steps",
+            "batch_size",
+            "n_epochs",
+            "gamma",
+            "gae_lambda",
+            "clip_range",
+            "ent_coef",
+            "buffer_size",
+            "learning_starts",
+            "tau",
+            "train_freq",
+            "gradient_steps",
+            "target_update_interval",
+            "exploration_fraction",
+            "exploration_initial_eps",
             "exploration_final_eps",
         }
     }
@@ -200,12 +213,16 @@ def train_agent(
         "seed": seed,
         "eval_freq": eval_freq,
         "n_eval_episodes": n_eval_episodes,
-        "stealth_params": {
-            "detection_threshold": detection_threshold,
-            "detection_cost_per_step": detection_cost_per_step,
-            "caught_penalty": caught_penalty,
-            "alpha": alpha,
-        } if stealth else None,
+        "stealth_params": (
+            {
+                "detection_threshold": detection_threshold,
+                "detection_cost_per_step": detection_cost_per_step,
+                "caught_penalty": caught_penalty,
+                "alpha": alpha,
+            }
+            if stealth
+            else None
+        ),
         "hyperparameters": agent_hparams,
         "net_arch": [256, 256],
     }
