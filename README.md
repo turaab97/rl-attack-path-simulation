@@ -37,12 +37,16 @@ This project addresses that gap using **Reinforcement Learning**. An RL agent ac
 | DQN agent (Stable-Baselines3) | Implemented |
 | Training & evaluation CLI harness | Implemented |
 | Attack path interpretation & analysis | Implemented |
+| MITRE ATT&CK action mapping | Implemented |
+| What-if counterfactual topology analysis | Implemented |
+| Network topology diagram generator | Implemented |
+| Automated pentest report generator | Implemented |
 | Visualisation / plotting utilities | Implemented |
 | Docker containerised training pipeline | Implemented |
 | Unit & integration tests | Implemented |
 | GitHub Actions CI | Implemented |
+| Full analysis notebook (10+ sections) | Implemented |
 | Full training runs + saved models | In Progress |
-| Exploratory notebooks | Planned |
 
 ---
 
@@ -91,6 +95,10 @@ rl-attack-path-simulation/
 │
 ├── analysis/
 │   ├── attack_path.py          # Action→host mapping, pivot analysis, path interpretation
+│   ├── mitre_mapping.py        # NASim→MITRE ATT&CK technique/tactic mapping
+│   ├── what_if.py              # Counterfactual topology analysis (firewall changes)
+│   ├── topology_diagram.py     # Network topology diagram generator (matplotlib)
+│   ├── report_generator.py     # Automated penetration testing report (Markdown)
 │   └── visualize.py            # Training curves, comparison bars, sensitivity plots
 │
 ├── tests/
@@ -103,6 +111,9 @@ rl-attack-path-simulation/
 │
 ├── scripts/
 │   └── entrypoint.sh           # Docker entrypoint dispatcher
+│
+├── notebooks/
+│   └── 01_full_analysis.ipynb  # Full experimental analysis (11 sections)
 │
 ├── Dockerfile                  # Python 3.12 container with all deps
 ├── docker-compose.yml          # Services: train, evaluate, visualize, test
@@ -291,6 +302,55 @@ This directly answers the security question: **which hosts serve as stepping sto
 
 ---
 
+## MITRE ATT&CK Mapping
+
+Every NASim action maps to a MITRE ATT&CK technique, bridging the simulation to the industry-standard adversary framework:
+
+| NASim Action | ATT&CK Tactic | Technique ID | Technique Name |
+|---|---|---|---|
+| subnet_scan | Discovery | T1046 | Network Service Discovery |
+| e_http | Initial Access | T1190 | Exploit Public-Facing Application |
+| e_ssh | Lateral Movement | T1021.004 | Remote Services: SSH |
+| e_smb | Lateral Movement | T1021.002 | Remote Services: SMB |
+| pe_linux | Privilege Escalation | T1068 | Exploitation for Privilege Escalation |
+
+```python
+from analysis.mitre_mapping import map_path_to_mitre, generate_mitre_summary_table
+# Annotate an attack path with ATT&CK metadata
+mitre_path = map_path_to_mitre(interpreted_path)
+```
+
+---
+
+## What-If Topology Analysis
+
+Evaluate the security impact of network changes without retraining the agent. The trained agent is evaluated on modified topologies, simulating a defender deploying firewall changes against an attacker with existing reconnaissance knowledge.
+
+```python
+from analysis.what_if import run_all_what_if
+
+# Evaluate all 4 firewall modifications
+results = run_all_what_if(trained_agent, n_episodes=100)
+# Available modifications: block_ssh_to_ai, block_http_to_ai,
+#                          isolate_data_lake, full_segmentation
+```
+
+---
+
+## Automated Pentest Report
+
+Generate a professional penetration testing report from the RL agent's findings. The report includes executive summary, MITRE ATT&CK coverage, pivot host identification, network hardening recommendations, and detection capability assessment.
+
+```bash
+# Via Docker
+docker compose run rl-sim report
+
+# Via CLI
+python -m analysis.report_generator --results_dir results/ --output results/pentest_report.md
+```
+
+---
+
 ## Reproducibility
 
 | Item | Value |
@@ -322,11 +382,16 @@ results/
 ├── dqn_baseline/
 │   └── ...                      # Same structure
 ├── eval_results.json            # Aggregate evaluation metrics (PPO vs DQN)
+├── pentest_report.md            # Generated penetration testing report
 └── plots/
     ├── training_curves.png      # Episode reward / length over training
     ├── comparison_bar.png       # Bar chart: key metrics side-by-side
-    ├── attack_path.png          # Action sequence timeline
-    └── detection_sensitivity.png  # Success rate vs detection threshold
+    ├── network_topology.png     # Colour-coded network topology diagram
+    ├── attack_path_heatmap.png  # Host-to-host transition frequency
+    ├── reward_decomposition.png # Stealth reward component breakdown
+    ├── what_if_impact.png       # Firewall change impact on success rate
+    ├── detection_sensitivity.png  # Success rate vs detection threshold
+    └── attack_path.png          # Action sequence timeline
 ```
 
 > Trained models and plots are `.gitignore`d. Run the training pipeline locally or via Docker to generate them.
