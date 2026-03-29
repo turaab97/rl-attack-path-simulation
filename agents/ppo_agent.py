@@ -84,7 +84,7 @@ class PPOAttackAgent:
     clip_range : float
         PPO clipping parameter ε. Default: 0.2.
     ent_coef : float
-        Entropy regularisation coefficient (encourages exploration). Default: 0.01.
+        Entropy regularisation coefficient (encourages exploration). Default: 0.05.
     tensorboard_log : str or None
         Directory for TensorBoard logs. Pass None to disable. Default: 'runs/ppo'.
     policy_kwargs : dict or None
@@ -107,7 +107,7 @@ class PPOAttackAgent:
         gamma: float = 0.99,
         gae_lambda: float = 0.95,
         clip_range: float = 0.2,
-        ent_coef: float = 0.01,
+        ent_coef: float = 0.05,
         tensorboard_log: str | None = "runs/ppo",
         policy_kwargs: dict | None = None,
         seed: int = 42,

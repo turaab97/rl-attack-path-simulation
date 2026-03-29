@@ -204,7 +204,11 @@ def build_network_scenario() -> nasim.Scenario:
     return scenario
 
 
-def make_env(scenario_name: str | None = None, stealth: bool = False) -> nasim.NASimEnv:
+def make_env(
+    scenario_name: str | None = None,
+    stealth: bool = False,
+    fully_obs: bool = True,
+) -> nasim.NASimEnv:
     """
     Convenience factory: returns a ready-to-use NASim environment.
 
@@ -216,21 +220,23 @@ def make_env(scenario_name: str | None = None, stealth: bool = False) -> nasim.N
         AI-infrastructure topology defined in this file.
     stealth : bool
         Whether to tag the environment for stealth-mode training.
+    fully_obs : bool
+        If True (default), the agent observes the full network state from
+        step 0.  If False, the agent starts with no knowledge and must scan
+        to discover hosts (much harder to learn).
 
     Returns
     -------
     nasim.NASimEnv
     """
     if scenario_name is not None:
-        # nasim >= 0.10: use make_benchmark() for built-in scenarios
-        env = nasim.make_benchmark(scenario_name)
+        env = nasim.make_benchmark(scenario_name, fully_obs=fully_obs)
     else:
-        # Custom AI-infra topology: write YAML to a temp file, load from path
         fd, tmp_path = tempfile.mkstemp(suffix=".yaml")
         try:
             with os.fdopen(fd, "w") as f:
                 f.write(_NETWORK_YAML)
-            env = nasim.load(tmp_path, name="ai-infra")
+            env = nasim.load(tmp_path, name="ai-infra", fully_obs=fully_obs)
         finally:
             os.unlink(tmp_path)
     return env

@@ -158,7 +158,7 @@ def make_modified_env(modification: str, stealth: bool = False, **stealth_kwargs
     try:
         with os.fdopen(fd, "w") as f:
             f.write(modified_yaml)
-        env = nasim.load(tmp_path, name=f"ai-infra-{modification}")
+        env = nasim.load(tmp_path, name=f"ai-infra-{modification}", fully_obs=True)
     finally:
         os.unlink(tmp_path)
 

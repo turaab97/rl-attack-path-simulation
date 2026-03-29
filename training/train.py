@@ -25,7 +25,7 @@ from pathlib import Path
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
-from agents.wrappers import IntActionWrapper
+from agents.wrappers import DenseRewardWrapper, IntActionWrapper
 from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
@@ -44,11 +44,18 @@ def _make_environments(
 ) -> tuple:
     """Return (train_env, eval_env).
 
-    Both environments are wrapped with IntActionWrapper to ensure NASim
-    receives plain Python ints (NASim 0.12 rejects numpy integer types).
+    The training environment is wrapped with DenseRewardWrapper to provide
+    intermediate reward shaping (observation-diff bonus), enabling the
+    agent to learn from incremental progress rather than only from the
+    extremely sparse sensitive-host rewards.
+
+    The eval environment uses the true NASim rewards (no shaping) so that
+    evaluation metrics reflect genuine task performance.
+
+    Both environments use IntActionWrapper so NASim receives plain ints.
     """
-    train_env = IntActionWrapper(make_env(scenario_name=scenario_name, stealth=stealth))
-    eval_env = IntActionWrapper(make_env(scenario_name=scenario_name, stealth=stealth))
+    train_env = DenseRewardWrapper(IntActionWrapper(make_env(scenario_name=scenario_name)))
+    eval_env = IntActionWrapper(make_env(scenario_name=scenario_name))
 
     if stealth:
         train_env = make_stealth_env(
@@ -201,13 +208,17 @@ def train_agent(
             "exploration_final_eps",
         }
     }
-    # SB3 stores some values as schedules; convert to float for JSON
+    # SB3 stores some values as schedules/enums; convert for JSON
     for k, v in agent_hparams.items():
         if callable(v):
             try:
                 agent_hparams[k] = float(v(1.0))
             except Exception:
                 agent_hparams[k] = str(v)
+        elif hasattr(v, "value"):
+            agent_hparams[k] = v.value
+        elif not isinstance(v, (int, float, str, bool, list, type(None))):
+            agent_hparams[k] = str(v)
 
     meta = {
         "agent": agent_type,

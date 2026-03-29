@@ -76,7 +76,7 @@ class DQNAttackAgent:
     target_update_interval : int
         Steps between target network updates. Default: 1000.
     exploration_fraction : float
-        Fraction of total training during which ε decays. Default: 0.2.
+        Fraction of total training during which ε decays. Default: 0.5.
     exploration_initial_eps : float
         Starting ε for ε-greedy exploration. Default: 1.0.
     exploration_final_eps : float
@@ -105,7 +105,7 @@ class DQNAttackAgent:
         train_freq: int = 4,
         gradient_steps: int = 1,
         target_update_interval: int = 1_000,
-        exploration_fraction: float = 0.2,
+        exploration_fraction: float = 0.5,
         exploration_initial_eps: float = 1.0,
         exploration_final_eps: float = 0.05,
         tensorboard_log: str | None = "runs/dqn",
