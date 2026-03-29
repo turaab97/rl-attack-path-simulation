@@ -55,7 +55,7 @@ def evaluate_agent(
     agent,
     env,
     n_episodes: int = 100,
-    deterministic: bool = True,
+    deterministic: bool = False,
 ) -> dict[str, Any]:
     """
     Evaluate a trained agent over `n_episodes` episodes.
