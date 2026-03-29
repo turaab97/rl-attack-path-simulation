@@ -47,7 +47,7 @@ AI_INFRA_HOSTS = [
 ]
 
 _NETWORK_YAML = """\
-subnets: [1, 3, 4, 3, 1]
+subnets: [3, 4, 3, 1]
 
 topology: [
   [1, 1, 0, 0, 0],
@@ -58,25 +58,25 @@ topology: [
 ]
 
 sensitive_hosts:
-  (3, 0): 200   # LLM API Server
-  (3, 1): 200   # Vector DB
-  (3, 2): 150   # Model Repo
-  (4, 0): 300   # Training Data Lake
+  (3, 0): 200
+  (3, 1): 200
+  (3, 2): 150
+  (4, 0): 300
 
 os:
-  linux: 0.5
-  windows: 0.5
+  - linux
+  - windows
 
 services:
-  ssh: 0.5
-  http: 0.4
-  smb: 0.3
-  rdp: 0.3
+  - ssh
+  - http
+  - smb
+  - rdp
 
 processes:
-  apache: 0.4
-  sshd: 0.5
-  smbd: 0.3
+  - apache
+  - sshd
+  - smbd
 
 exploits:
   e_ssh:
@@ -87,7 +87,7 @@ exploits:
     access: user
   e_http:
     service: http
-    os: linux
+    os: None
     prob: 0.7
     cost: 1
     access: user
@@ -118,102 +118,68 @@ privilege_escalation:
     cost: 1
     access: root
 
+service_scan_cost: 1
+os_scan_cost: 1
+subnet_scan_cost: 1
+process_scan_cost: 1
+
 host_configurations:
-  # --- DMZ (subnet 1) ---
   (1, 0):
     os: linux
     services: [http, ssh]
     processes: [apache, sshd]
-    value: 0
-    firewall: {}
-    access: none
   (1, 1):
     os: windows
     services: [smb, rdp]
     processes: [smbd]
-    value: 0
-    firewall: {}
-    access: none
   (1, 2):
     os: linux
     services: [ssh, http]
     processes: [sshd, apache]
-    value: 0
-    firewall: {}
-    access: none
-
-  # --- Corporate LAN (subnet 2) ---
   (2, 0):
     os: windows
     services: [smb, rdp]
     processes: [smbd]
-    value: 10
-    firewall:
-      (1, 0): [smb]
-      (1, 1): [smb, rdp]
-    access: none
   (2, 1):
     os: linux
     services: [ssh, http]
     processes: [sshd, apache]
-    value: 10
-    firewall:
-      (1, 2): [ssh]
-    access: none
   (2, 2):
     os: windows
     services: [smb, rdp]
     processes: [smbd]
-    value: 20
-    firewall:
-      (2, 0): [smb]
-    access: none
   (2, 3):
     os: linux
     services: [ssh]
     processes: [sshd]
-    value: 10
-    firewall:
-      (2, 1): [ssh]
-    access: none
-
-  # --- AI Infrastructure (subnet 3) ---
   (3, 0):
     os: linux
     services: [http, ssh]
     processes: [apache, sshd]
-    value: 200
-    firewall:
-      (2, 1): [http]
-      (2, 3): [ssh]
-    access: none
   (3, 1):
     os: linux
     services: [http]
     processes: [apache]
-    value: 200
-    firewall:
-      (3, 0): [http]
-    access: none
   (3, 2):
     os: linux
     services: [ssh]
     processes: [sshd]
-    value: 150
-    firewall:
-      (3, 0): [ssh]
-    access: none
-
-  # --- Data Lake (subnet 4) ---
   (4, 0):
     os: linux
     services: [ssh]
     processes: [sshd]
-    value: 300
-    firewall:
-      (3, 0): [ssh]
-      (3, 2): [ssh]
-    access: none
+
+firewall:
+  (0, 1): [http, ssh, smb, rdp]
+  (1, 0): []
+  (1, 2): [ssh, smb, rdp, http]
+  (2, 1): [ssh, http]
+  (2, 3): [http, ssh]
+  (3, 2): [ssh]
+  (3, 4): [ssh]
+  (4, 3): [ssh]
+
+step_limit: 500
 """
 
 

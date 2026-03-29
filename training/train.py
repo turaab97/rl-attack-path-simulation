@@ -25,6 +25,7 @@ from pathlib import Path
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
+from agents.wrappers import IntActionWrapper
 from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
@@ -41,9 +42,13 @@ def _make_environments(
     caught_penalty: float,
     alpha: float,
 ) -> tuple:
-    """Return (train_env, eval_env)."""
-    train_env = make_env(scenario_name=scenario_name, stealth=stealth)
-    eval_env = make_env(scenario_name=scenario_name, stealth=stealth)
+    """Return (train_env, eval_env).
+
+    Both environments are wrapped with IntActionWrapper to ensure NASim
+    receives plain Python ints (NASim 0.12 rejects numpy integer types).
+    """
+    train_env = IntActionWrapper(make_env(scenario_name=scenario_name, stealth=stealth))
+    eval_env = IntActionWrapper(make_env(scenario_name=scenario_name, stealth=stealth))
 
     if stealth:
         train_env = make_stealth_env(
@@ -135,7 +140,9 @@ def train_agent(
         alpha=alpha,
     )
 
-    tb_log = str(save_dir / "tensorboard")
+    tb_dir = save_dir / "tensorboard"
+    tb_dir.mkdir(parents=True, exist_ok=True)
+    tb_log = str(tb_dir)
 
     if agent_type.lower() == "ppo":
         agent = PPOAttackAgent(

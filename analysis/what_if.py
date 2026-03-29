@@ -41,57 +41,54 @@ from environments.stealth_wrapper import make_stealth_env
 # a modified YAML string. This keeps topology changes declarative and auditable.
 
 def _block_ssh_to_ai(yaml_str: str) -> str:
-    """Block SSH access from Corporate LAN to AI Infrastructure subnet.
+    """Block SSH from Corporate LAN to AI Infrastructure subnet.
 
-    Modifies host (3,0) LLM API Server to remove the SSH firewall rule
-    from (2,3) Internal Services. This forces the attacker to find an
-    alternative path through HTTP only.
+    Removes SSH from the (2, 3) firewall rule, meaning Corporate LAN
+    can only reach AI Infrastructure via HTTP. Forces the attacker to
+    find an HTTP-only pivot chain.
     """
     return yaml_str.replace(
-        "      (2, 3): [ssh]",
-        "      # (2, 3): [ssh]  # BLOCKED by what-if analysis",
+        "  (2, 3): [http, ssh]",
+        "  (2, 3): [http]  # SSH BLOCKED by what-if analysis",
     )
 
 
 def _block_http_to_ai(yaml_str: str) -> str:
-    """Block HTTP access from Corporate LAN to AI Infrastructure subnet.
+    """Block HTTP from Corporate LAN to AI Infrastructure subnet.
 
-    Removes the HTTP firewall rule from (2,1) Dev Server to (3,0) LLM
-    API Server, forcing the attacker to pivot through SSH only.
+    Removes HTTP from the (2, 3) firewall rule, meaning Corporate LAN
+    can only reach AI Infrastructure via SSH. Forces the attacker to
+    find an SSH-only pivot chain.
     """
     return yaml_str.replace(
-        "      (2, 1): [http]",
-        "      # (2, 1): [http]  # BLOCKED by what-if analysis",
+        "  (2, 3): [http, ssh]",
+        "  (2, 3): [ssh]  # HTTP BLOCKED by what-if analysis",
     )
 
 
 def _isolate_data_lake(yaml_str: str) -> str:
-    """Fully isolate the Data Lake from Model Repository access.
+    """Fully isolate the Data Lake from AI Infrastructure.
 
-    Removes the SSH rule from (3,2) Model Repo to (4,0) Training Data
-    Lake, leaving only the path through (3,0) LLM API Server.
+    Removes the (3, 4) firewall rule entirely, cutting off all subnet-level
+    access from AI Infrastructure to the Data Lake. The attacker cannot
+    reach the highest-value target.
     """
     return yaml_str.replace(
-        "      (3, 2): [ssh]",
-        "      # (3, 2): [ssh]  # BLOCKED by what-if analysis",
+        "  (3, 4): [ssh]",
+        "  (3, 4): []  # ALL ACCESS BLOCKED by what-if analysis",
     )
 
 
 def _add_segmentation(yaml_str: str) -> str:
     """Add network segmentation: block direct Corporate LAN to AI paths.
 
-    Removes BOTH firewall rules from Corporate LAN hosts to the LLM API
-    Server, requiring the attacker to find an entirely new route.
+    Removes ALL services from the (2, 3) firewall rule, cutting off the
+    only direct path from Corporate LAN to AI Infrastructure.
     """
-    modified = yaml_str.replace(
-        "      (2, 1): [http]",
-        "      # (2, 1): [http]  # BLOCKED by segmentation",
+    return yaml_str.replace(
+        "  (2, 3): [http, ssh]",
+        "  (2, 3): []  # ALL ACCESS BLOCKED by segmentation",
     )
-    modified = modified.replace(
-        "      (2, 3): [ssh]",
-        "      # (2, 3): [ssh]  # BLOCKED by segmentation",
-    )
-    return modified
 
 
 MODIFICATIONS = {
