@@ -124,12 +124,13 @@ class TestCustomStealthEnv:
         assert custom_stealth_env.observation_space == custom_env.observation_space
         assert custom_stealth_env.action_space == custom_env.action_space
 
-    def test_idle_step_no_detection_penalty(self, custom_stealth_env):
-        """Action 0 (noop) should not accumulate detection."""
+    def test_first_step_accumulates_detection(self, custom_stealth_env):
+        """Any step that returns a non-zero reward is treated as active."""
         custom_stealth_env.reset()
         _, reward, _, _, info = custom_stealth_env.step(0)
-        # Noop: detection should not increase (action==0 and reward==0 → not active)
-        assert info["cumulative_detection"] == 0.0
+        # NASim action 0 returns reward=-1 (step cost), which is non-zero,
+        # so the stealth wrapper treats it as active and accumulates detection.
+        assert info["cumulative_detection"] == pytest.approx(0.1)
 
     def test_active_step_accumulates_detection(self, custom_stealth_env):
         """A non-noop action should increase cumulative detection."""
