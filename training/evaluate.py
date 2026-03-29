@@ -177,14 +177,20 @@ def evaluate_both_agents(
     out.mkdir(parents=True, exist_ok=True)
 
     combined = {"ppo": ppo_results, "dqn": dqn_results}
-    with open(out / "eval_results.json", "w") as f:
-        # per_episode can be large; we'll strip the path list from the JSON
+
+    tag = "stealth" if stealth else "baseline"
+    eval_file = out / f"eval_{tag}.json"
+    with open(eval_file, "w") as f:
         stripped = {
             k: {kk: vv for kk, vv in v.items() if kk != "per_episode"} for k, v in combined.items()
         }
         json.dump(stripped, f, indent=2)
 
-    print(f"\nEvaluation results saved → {out / 'eval_results.json'}")
+    # Also write to eval_results.json for backward compat
+    with open(out / "eval_results.json", "w") as f:
+        json.dump(stripped, f, indent=2)
+
+    print(f"\nEvaluation results saved → {eval_file}")
 
     ppo_env.close()
     dqn_env.close()
