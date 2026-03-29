@@ -300,14 +300,8 @@ reliably prevent compromise of AI assets.
             sections.append("| Detection Threshold | Agent Success Rate | Assessment |")
             sections.append("|---|---|---|")
             for t, s in zip(thresholds, success_rates):
-                assessment = (
-                    "Effective" if s < 0.2 else
-                    "Partial" if s < 0.5 else
-                    "Insufficient"
-                )
-                sections.append(
-                    f"| {t:.1f} | {_format_percent(s)} | {assessment} |"
-                )
+                assessment = "Effective" if s < 0.2 else "Partial" if s < 0.5 else "Insufficient"
+                sections.append(f"| {t:.1f} | {_format_percent(s)} | {assessment} |")
             sections.append("")
 
             # Find the threshold where success drops below 50%

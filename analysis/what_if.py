@@ -24,7 +24,6 @@ Usage:
 from __future__ import annotations
 
 import os
-import re
 import tempfile
 from typing import Any
 
@@ -33,12 +32,12 @@ import nasim
 from environments.network_config import _NETWORK_YAML
 from environments.stealth_wrapper import make_stealth_env
 
-
 # ---------------------------------------------------------------------------
 # Topology modifications
 # ---------------------------------------------------------------------------
 # Each modification is a function that takes the base YAML string and returns
 # a modified YAML string. This keeps topology changes declarative and auditable.
+
 
 def _block_ssh_to_ai(yaml_str: str) -> str:
     """Block SSH from Corporate LAN to AI Infrastructure subnet.
@@ -147,9 +146,7 @@ def make_modified_env(modification: str, stealth: bool = False, **stealth_kwargs
     """
     if modification not in MODIFICATIONS:
         available = ", ".join(MODIFICATIONS.keys())
-        raise ValueError(
-            f"Unknown modification: {modification!r}. Choose from: {available}"
-        )
+        raise ValueError(f"Unknown modification: {modification!r}. Choose from: {available}")
 
     mod_fn = MODIFICATIONS[modification]["fn"]
     modified_yaml = mod_fn(_NETWORK_YAML)

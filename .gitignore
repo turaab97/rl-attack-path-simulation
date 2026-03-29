@@ -21,14 +21,12 @@ ENV/
 # ML artefacts
 runs/
 results/*/tensorboard/
+results/*/best_model/
 results/*/best_model.zip
 results/*/final_model.zip
 *.zip
 *.pt
 *.pth
-
-# Plots (regenerate with analysis/visualize.py)
-results/plots/
 
 # OS
 .DS_Store

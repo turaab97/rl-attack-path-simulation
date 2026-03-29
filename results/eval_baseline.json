@@ -1,0 +1,26 @@
+{
+  "ppo": {
+    "n_episodes": 100,
+    "mean_reward": -100.0,
+    "std_reward": 0.0,
+    "min_reward": -100.0,
+    "max_reward": -100.0,
+    "mean_steps": 500.0,
+    "std_steps": 0.0,
+    "catch_rate": 0.0,
+    "success_rate": 0.0,
+    "mean_cumulative_detection": null
+  },
+  "dqn": {
+    "n_episodes": 100,
+    "mean_reward": -498.0,
+    "std_reward": 19.8997487421324,
+    "min_reward": -500.0,
+    "max_reward": -300.0,
+    "mean_steps": 500.0,
+    "std_steps": 0.0,
+    "catch_rate": 0.0,
+    "success_rate": 0.0,
+    "mean_cumulative_detection": null
+  }
+}

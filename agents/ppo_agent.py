@@ -79,8 +79,12 @@ class MaskedEvalCallback(BaseCallback):
             done = False
             total = 0.0
             while not done:
-                mask = self.eval_env.action_masks() if hasattr(self.eval_env, "action_masks") else None
-                action, _ = self.model.predict(obs, deterministic=self.deterministic, action_masks=mask)
+                mask = (
+                    self.eval_env.action_masks() if hasattr(self.eval_env, "action_masks") else None
+                )
+                action, _ = self.model.predict(
+                    obs, deterministic=self.deterministic, action_masks=mask
+                )
                 obs, r, term, trunc, _ = self.eval_env.step(int(action))
                 done = term or trunc
                 total += float(r)
@@ -212,7 +216,9 @@ class PPOAttackAgent:
     # Inference
     # ------------------------------------------------------------------
 
-    def predict(self, obs: np.ndarray, deterministic: bool = False, action_masks: np.ndarray | None = None) -> int:
+    def predict(
+        self, obs: np.ndarray, deterministic: bool = False, action_masks: np.ndarray | None = None
+    ) -> int:
         """Return an action for a given observation."""
         action, _ = self.model.predict(obs, deterministic=deterministic, action_masks=action_masks)
         return int(action)

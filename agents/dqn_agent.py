@@ -25,7 +25,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from agents.wrappers import ActionMaskWrapper
+from agents.wrappers import ActionMaskWrapper  # noqa: F401 (referenced in docstrings)
 
 
 class EpisodeStatsCallback(BaseCallback):
@@ -214,10 +214,14 @@ class DQNAttackAgent:
     # Inference
     # ------------------------------------------------------------------
 
-    def predict(self, obs: np.ndarray, deterministic: bool = True, action_masks: np.ndarray | None = None) -> int:
+    def predict(
+        self, obs: np.ndarray, deterministic: bool = True, action_masks: np.ndarray | None = None
+    ) -> int:
         """Return the action for a given observation with optional masking."""
         if action_masks is not None and deterministic:
-            obs_tensor = torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.model.device)
+            obs_tensor = (
+                torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.model.device)
+            )
             with torch.no_grad():
                 q_values = self.model.q_net(obs_tensor).squeeze(0).cpu().numpy()
             mask_np = np.array(action_masks, dtype=np.float32)
@@ -225,7 +229,9 @@ class DQNAttackAgent:
             return int(np.argmax(q_values))
         if action_masks is not None and not deterministic:
             valid = np.where(np.array(action_masks) > 0.5)[0]
-            if len(valid) > 0 and np.random.random() < getattr(self.model, "exploration_rate", 0.05):
+            if len(valid) > 0 and np.random.random() < getattr(
+                self.model, "exploration_rate", 0.05
+            ):
                 return int(np.random.choice(valid))
         action, _ = self.model.predict(obs, deterministic=deterministic)
         return int(action)
