@@ -21,10 +21,7 @@ import gymnasium as gym
 import numpy as np
 import torch
 from stable_baselines3 import DQN
-from stable_baselines3.common.callbacks import (
-    BaseCallback,
-    EvalCallback,
-)
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
@@ -46,26 +43,44 @@ class EpisodeStatsCallback(BaseCallback):
         return True
 
 
-class MaskedDQNWrapper(gym.Wrapper):
-    """Wrapper that masks invalid actions for DQN during epsilon-greedy.
+class MaskedEvalCallback(BaseCallback):
+    """Evaluate DQN with masked Q-values at regular intervals."""
 
-    During random exploration (epsilon-greedy), only valid actions are
-    sampled.  During greedy selection, this wrapper doesn't affect the
-    Q-network output, but the agent's predict method handles masking.
-    """
+    def __init__(
+        self,
+        eval_env: gym.Env,
+        agent: "DQNAttackAgent",
+        n_eval_episodes: int = 10,
+        eval_freq: int = 10_000,
+        best_model_save_path: str | None = None,
+        verbose: int = 0,
+    ) -> None:
+        super().__init__(verbose)
+        self.eval_env = eval_env
+        self.agent = agent
+        self.n_eval_episodes = n_eval_episodes
+        self.eval_freq = eval_freq
+        self.best_model_save_path = best_model_save_path
+        self.best_mean_reward = -np.inf
 
-    def __init__(self, env: gym.Env):
-        super().__init__(env)
-        self._action_mask_env = env
-        while self._action_mask_env is not None:
-            if hasattr(self._action_mask_env, "action_masks"):
-                break
-            self._action_mask_env = getattr(self._action_mask_env, "env", None)
+    def _on_step(self) -> bool:
+        if self.n_calls % self.eval_freq != 0:
+            return True
 
-    def action_masks(self) -> np.ndarray:
-        if self._action_mask_env is not None:
-            return self._action_mask_env.action_masks()
-        return np.ones(self.action_space.n, dtype=np.float32)
+        rewards = []
+        for _ in range(self.n_eval_episodes):
+            result = self.agent.run_episode(self.eval_env, deterministic=True)
+            rewards.append(result["total_reward"])
+
+        mean_r = float(np.mean(rewards))
+        self.logger.record("eval/mean_reward", mean_r)
+        self.logger.record("eval/std_reward", float(np.std(rewards)))
+
+        if self.best_model_save_path and mean_r > self.best_mean_reward:
+            self.best_mean_reward = mean_r
+            self.model.save(f"{self.best_model_save_path}/best_model")
+
+        return True
 
 
 class DQNAttackAgent:
@@ -178,14 +193,12 @@ class DQNAttackAgent:
         callbacks = [EpisodeStatsCallback()]
 
         if eval_env is not None:
-            eval_monitor = Monitor(eval_env)
-            eval_cb = EvalCallback(
-                DummyVecEnv([lambda: eval_monitor]),
-                best_model_save_path=save_path,
-                log_path=save_path,
-                eval_freq=eval_freq,
+            eval_cb = MaskedEvalCallback(
+                eval_env=eval_env,
+                agent=self,
                 n_eval_episodes=n_eval_episodes,
-                verbose=0,
+                eval_freq=eval_freq,
+                best_model_save_path=save_path,
             )
             callbacks.append(eval_cb)
 

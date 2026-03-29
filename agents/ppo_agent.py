@@ -21,14 +21,8 @@ from typing import Any
 import gymnasium as gym
 import numpy as np
 from sb3_contrib import MaskablePPO
-from stable_baselines3.common.callbacks import (
-    BaseCallback,
-    EvalCallback,
-)
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
-
-from agents.wrappers import ActionMaskWrapper
 
 
 class EpisodeStatsCallback(BaseCallback):
@@ -46,6 +40,60 @@ class EpisodeStatsCallback(BaseCallback):
                 self.logger.record("train/ep_len_mean", ep["l"])
                 if "cumulative_detection" in info:
                     self.logger.record("train/cumulative_detection", info["cumulative_detection"])
+        return True
+
+
+class MaskedEvalCallback(BaseCallback):
+    """Evaluate MaskablePPO with action masks at regular intervals.
+
+    SB3's built-in EvalCallback doesn't pass action_masks during predict,
+    so MaskablePPO evaluation always selects from the full (unmasked)
+    action space, producing garbage results.  This callback manually
+    rolls out episodes with proper masking.
+    """
+
+    def __init__(
+        self,
+        eval_env: gym.Env,
+        n_eval_episodes: int = 10,
+        eval_freq: int = 10_000,
+        best_model_save_path: str | None = None,
+        deterministic: bool = False,
+        verbose: int = 0,
+    ) -> None:
+        super().__init__(verbose)
+        self.eval_env = eval_env
+        self.n_eval_episodes = n_eval_episodes
+        self.eval_freq = eval_freq
+        self.best_model_save_path = best_model_save_path
+        self.deterministic = deterministic
+        self.best_mean_reward = -np.inf
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.eval_freq != 0:
+            return True
+
+        rewards = []
+        for _ in range(self.n_eval_episodes):
+            obs, _ = self.eval_env.reset()
+            done = False
+            total = 0.0
+            while not done:
+                mask = self.eval_env.action_masks() if hasattr(self.eval_env, "action_masks") else None
+                action, _ = self.model.predict(obs, deterministic=self.deterministic, action_masks=mask)
+                obs, r, term, trunc, _ = self.eval_env.step(int(action))
+                done = term or trunc
+                total += float(r)
+            rewards.append(total)
+
+        mean_r = float(np.mean(rewards))
+        self.logger.record("eval/mean_reward", mean_r)
+        self.logger.record("eval/std_reward", float(np.std(rewards)))
+
+        if self.best_model_save_path and mean_r > self.best_mean_reward:
+            self.best_mean_reward = mean_r
+            self.model.save(f"{self.best_model_save_path}/best_model")
+
         return True
 
 
@@ -143,14 +191,12 @@ class PPOAttackAgent:
         callbacks = [EpisodeStatsCallback()]
 
         if eval_env is not None:
-            eval_monitor = Monitor(eval_env)
-            eval_cb = EvalCallback(
-                eval_monitor,
-                best_model_save_path=save_path,
-                log_path=save_path,
-                eval_freq=eval_freq,
+            eval_cb = MaskedEvalCallback(
+                eval_env=eval_env,
                 n_eval_episodes=n_eval_episodes,
-                verbose=0,
+                eval_freq=eval_freq,
+                best_model_save_path=save_path,
+                deterministic=False,
             )
             callbacks.append(eval_cb)
 
