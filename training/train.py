@@ -25,7 +25,7 @@ from pathlib import Path
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
-from agents.wrappers import DenseRewardWrapper, IntActionWrapper
+from agents.wrappers import ActionMaskWrapper, DenseRewardWrapper, IntActionWrapper
 from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
@@ -44,18 +44,22 @@ def _make_environments(
 ) -> tuple:
     """Return (train_env, eval_env).
 
-    The training environment is wrapped with DenseRewardWrapper to provide
-    intermediate reward shaping (observation-diff bonus), enabling the
-    agent to learn from incremental progress rather than only from the
-    extremely sparse sensitive-host rewards.
+    Both environments use ActionMaskWrapper so that MaskablePPO (and DQN
+    with manual masking) only consider valid actions at each step.  This
+    is critical for NASim where 70-80 % of actions are invalid at any
+    given state.
+
+    The training environment additionally wraps with DenseRewardWrapper
+    for intermediate reward shaping.
 
     The eval environment uses the true NASim rewards (no shaping) so that
     evaluation metrics reflect genuine task performance.
-
-    Both environments use IntActionWrapper so NASim receives plain ints.
     """
-    train_env = DenseRewardWrapper(IntActionWrapper(make_env(scenario_name=scenario_name)))
-    eval_env = IntActionWrapper(make_env(scenario_name=scenario_name))
+    raw_train = make_env(scenario_name=scenario_name)
+    raw_eval = make_env(scenario_name=scenario_name)
+
+    train_env = DenseRewardWrapper(ActionMaskWrapper(IntActionWrapper(raw_train)))
+    eval_env = ActionMaskWrapper(IntActionWrapper(raw_eval))
 
     if stealth:
         train_env = make_stealth_env(
@@ -179,11 +183,9 @@ def train_agent(
     )
     wall_time = time.time() - t0
 
-    # Save final model
     model_path = str(save_dir / "final_model")
     agent.save(model_path)
 
-    # Persist full metadata including hyperparameters for reproducibility
     agent_hparams = {
         k: v
         for k, v in agent.model.__dict__.items()
@@ -208,7 +210,6 @@ def train_agent(
             "exploration_final_eps",
         }
     }
-    # SB3 stores some values as schedules/enums; convert for JSON
     for k, v in agent_hparams.items():
         if callable(v):
             try:

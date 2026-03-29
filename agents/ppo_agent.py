@@ -6,17 +6,11 @@ Proximal Policy Optimization (PPO) agent for NASim attack-path simulation.
 Author: Syed Ali Turab
 Course: MMAI 845 – Reinforcement Learning
 
-Uses Stable-Baselines3 PPO with an MLP policy.  NASim exposes a flat
-observation vector and a discrete action space, so MlpPolicy is the natural
-choice.
-
-Key design choices
-==================
-* The agent is wrapped in a thin class so callers can swap PPO ↔ DQN without
-  changing the training / evaluation harness.
-* TensorBoard logging is enabled by default; pass tensorboard_log=None to
-  disable.
-* The model is saved/loaded via the SB3 native API (.zip format).
+Uses sb3-contrib MaskablePPO with action masking.  NASim has 110 actions but
+only ~30 are valid at any time.  Without masking the agent wastes most of its
+exploration budget on invalid actions that always return -1.  MaskablePPO
+zeroes out invalid action logits before sampling, so every training step
+interacts meaningfully with the environment.
 """
 
 from __future__ import annotations
@@ -26,28 +20,22 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
-from stable_baselines3 import PPO
+from sb3_contrib import MaskablePPO
 from stable_baselines3.common.callbacks import (
     BaseCallback,
     EvalCallback,
-    StopTrainingOnRewardThreshold,
 )
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from agents.wrappers import IntActionWrapper
+from agents.wrappers import ActionMaskWrapper
 
 
 class EpisodeStatsCallback(BaseCallback):
-    """
-    Logs per-episode statistics (reward, length, detection score) to
-    TensorBoard so we can track attacker behaviour over training.
-    """
+    """Log per-episode stats to TensorBoard."""
 
     def __init__(self, verbose: int = 0) -> None:
         super().__init__(verbose)
-        self._episode_rewards: list[float] = []
-        self._episode_lengths: list[int] = []
 
     def _on_step(self) -> bool:
         infos = self.locals.get("infos", [])
@@ -63,12 +51,12 @@ class EpisodeStatsCallback(BaseCallback):
 
 class PPOAttackAgent:
     """
-    PPO-based attacker agent wrapping Stable-Baselines3.
+    MaskablePPO-based attacker agent wrapping sb3-contrib.
 
     Parameters
     ----------
     env : gym.Env
-        The (optionally stealth-wrapped) NASim environment.
+        A NASim environment wrapped with ActionMaskWrapper.
     learning_rate : float
         Adam learning rate. Default: 3e-4.
     n_steps : int
@@ -82,17 +70,17 @@ class PPOAttackAgent:
     gae_lambda : float
         GAE lambda for advantage estimation. Default: 0.95.
     clip_range : float
-        PPO clipping parameter ε. Default: 0.2.
+        PPO clipping parameter. Default: 0.2.
     ent_coef : float
-        Entropy regularisation coefficient (encourages exploration). Default: 0.05.
+        Entropy regularisation coefficient. Default: 0.05.
     tensorboard_log : str or None
-        Directory for TensorBoard logs. Pass None to disable. Default: 'runs/ppo'.
+        Directory for TensorBoard logs. Default: 'runs/ppo'.
     policy_kwargs : dict or None
-        Extra keyword arguments forwarded to MlpPolicy (e.g. net_arch).
+        Extra keyword arguments forwarded to MlpPolicy.
     seed : int
         Random seed. Default: 42.
     device : str
-        Torch device: 'auto', 'cpu', or 'cuda'. Default: 'auto'.
+        Torch device. Default: 'cpu'.
     """
 
     NAME = "PPO"
@@ -111,18 +99,17 @@ class PPOAttackAgent:
         tensorboard_log: str | None = "runs/ppo",
         policy_kwargs: dict | None = None,
         seed: int = 42,
-        device: str = "auto",
+        device: str = "cpu",
     ) -> None:
-        self.env = Monitor(IntActionWrapper(env))
+        self.env = Monitor(env)
         self.seed = seed
 
         if policy_kwargs is None:
-            # Two hidden layers, 256 units each – appropriate for NASim obs size
             policy_kwargs = dict(net_arch=[256, 256])
 
-        self.model = PPO(
+        self.model = MaskablePPO(
             policy="MlpPolicy",
-            env=DummyVecEnv([lambda: self.env]),
+            env=self.env,
             learning_rate=learning_rate,
             n_steps=n_steps,
             batch_size=batch_size,
@@ -151,49 +138,18 @@ class PPOAttackAgent:
         save_path: str | None = None,
         reward_threshold: float | None = None,
         tb_log_name: str = "ppo_run",
-    ) -> PPO:
-        """
-        Train the PPO agent.
-
-        Parameters
-        ----------
-        total_timesteps : int
-            Total environment steps to train for.
-        eval_env : gym.Env or None
-            Optional held-out environment for periodic evaluation.
-        eval_freq : int
-            Evaluate every `eval_freq` steps (only used if eval_env is given).
-        n_eval_episodes : int
-            Number of episodes per evaluation.
-        save_path : str or None
-            If provided, saves the best model checkpoint here.
-        reward_threshold : float or None
-            Stop training early once mean reward exceeds this value.
-        tb_log_name : str
-            Sub-directory name inside tensorboard_log.
-
-        Returns
-        -------
-        stable_baselines3.PPO
-            The trained model.
-        """
+    ) -> MaskablePPO:
+        """Train the MaskablePPO agent."""
         callbacks = [EpisodeStatsCallback()]
 
         if eval_env is not None:
             eval_monitor = Monitor(eval_env)
-            callback_list = []
-            if reward_threshold is not None:
-                stop_cb = StopTrainingOnRewardThreshold(
-                    reward_threshold=reward_threshold, verbose=1
-                )
-                callback_list.append(stop_cb)
             eval_cb = EvalCallback(
-                DummyVecEnv([lambda: eval_monitor]),
+                eval_monitor,
                 best_model_save_path=save_path,
                 log_path=save_path,
                 eval_freq=eval_freq,
                 n_eval_episodes=n_eval_episodes,
-                callback_on_new_best=callback_list[0] if callback_list else None,
                 verbose=0,
             )
             callbacks.append(eval_cb)
@@ -210,18 +166,17 @@ class PPOAttackAgent:
     # Inference
     # ------------------------------------------------------------------
 
-    def predict(self, obs: np.ndarray, deterministic: bool = True) -> int:
-        """Return the greedy (or stochastic) action for a given observation."""
-        action, _ = self.model.predict(obs, deterministic=deterministic)
+    def predict(self, obs: np.ndarray, deterministic: bool = False, action_masks: np.ndarray | None = None) -> int:
+        """Return an action for a given observation."""
+        action, _ = self.model.predict(obs, deterministic=deterministic, action_masks=action_masks)
         return int(action)
 
-    def run_episode(self, env: gym.Env, deterministic: bool = True) -> dict[str, Any]:
+    def run_episode(self, env: gym.Env, deterministic: bool = False) -> dict[str, Any]:
         """
         Roll out one full episode and return metrics.
 
-        Returns
-        -------
-        dict with keys: total_reward, steps, path, caught, cumulative_detection
+        Uses stochastic policy by default because the deterministic policy
+        can get stuck repeating a single action.
         """
         obs, info = env.reset()
         done = False
@@ -230,7 +185,8 @@ class PPOAttackAgent:
         path: list[int] = []
 
         while not done:
-            action = self.predict(obs, deterministic=deterministic)
+            mask = env.action_masks() if hasattr(env, "action_masks") else None
+            action = self.predict(obs, deterministic=deterministic, action_masks=mask)
             path.append(action)
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
@@ -260,6 +216,6 @@ class PPOAttackAgent:
         """Load a previously saved model."""
         agent = cls.__new__(cls)
         agent.env = Monitor(env)
-        agent.model = PPO.load(path, env=DummyVecEnv([lambda: agent.env]))
+        agent.model = MaskablePPO.load(path, env=agent.env)
         print(f"[PPO] Model loaded ← {path}")
         return agent

@@ -30,7 +30,7 @@ import numpy as np
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
-from agents.wrappers import IntActionWrapper
+from agents.wrappers import ActionMaskWrapper, IntActionWrapper
 from environments.network_config import make_env
 from environments.stealth_wrapper import make_stealth_env
 
@@ -140,9 +140,8 @@ def evaluate_both_agents(
     -------
     dict  {'ppo': eval_summary, 'dqn': eval_summary}
     """
-    # Build evaluation environments (IntActionWrapper ensures NASim gets plain ints)
-    ppo_env = IntActionWrapper(make_env(scenario_name=scenario_name))
-    dqn_env = IntActionWrapper(make_env(scenario_name=scenario_name))
+    ppo_env = ActionMaskWrapper(IntActionWrapper(make_env(scenario_name=scenario_name)))
+    dqn_env = ActionMaskWrapper(IntActionWrapper(make_env(scenario_name=scenario_name)))
     if stealth:
         ppo_env = make_stealth_env(
             ppo_env,

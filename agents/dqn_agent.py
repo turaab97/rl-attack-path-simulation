@@ -6,13 +6,10 @@ Deep Q-Network (DQN) agent for NASim attack-path simulation.
 Author: Syed Ali Turab
 Course: MMAI 845 – Reinforcement Learning
 
-Uses Stable-Baselines3 DQN with an MLP policy.  DQN is particularly useful
-here because NASim's discrete action space maps naturally to a Q-table
-approximated by an MLP; epsilon-greedy exploration helps the agent discover
-novel attack paths.
-
-Mirrors the PPOAttackAgent interface so both agents can be used
-interchangeably by the training harness.
+Uses Stable-Baselines3 DQN with manual action masking during exploration.
+DQN's epsilon-greedy exploration is modified so that random actions are
+sampled only from the set of valid actions (via ActionMaskWrapper), and
+greedy action selection masks invalid Q-values with -inf.
 """
 
 from __future__ import annotations
@@ -22,16 +19,16 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
+import torch
 from stable_baselines3 import DQN
 from stable_baselines3.common.callbacks import (
     BaseCallback,
     EvalCallback,
-    StopTrainingOnRewardThreshold,
 )
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from agents.wrappers import IntActionWrapper
+from agents.wrappers import ActionMaskWrapper
 
 
 class EpisodeStatsCallback(BaseCallback):
@@ -49,14 +46,36 @@ class EpisodeStatsCallback(BaseCallback):
         return True
 
 
+class MaskedDQNWrapper(gym.Wrapper):
+    """Wrapper that masks invalid actions for DQN during epsilon-greedy.
+
+    During random exploration (epsilon-greedy), only valid actions are
+    sampled.  During greedy selection, this wrapper doesn't affect the
+    Q-network output, but the agent's predict method handles masking.
+    """
+
+    def __init__(self, env: gym.Env):
+        super().__init__(env)
+        self._action_mask_env = env
+        while self._action_mask_env is not None:
+            if hasattr(self._action_mask_env, "action_masks"):
+                break
+            self._action_mask_env = getattr(self._action_mask_env, "env", None)
+
+    def action_masks(self) -> np.ndarray:
+        if self._action_mask_env is not None:
+            return self._action_mask_env.action_masks()
+        return np.ones(self.action_space.n, dtype=np.float32)
+
+
 class DQNAttackAgent:
     """
-    DQN-based attacker agent wrapping Stable-Baselines3.
+    DQN-based attacker agent with manual action masking.
 
     Parameters
     ----------
     env : gym.Env
-        The (optionally stealth-wrapped) NASim environment.
+        A NASim environment wrapped with ActionMaskWrapper.
     learning_rate : float
         Adam learning rate. Default: 1e-4.
     buffer_size : int
@@ -66,29 +85,29 @@ class DQNAttackAgent:
     batch_size : int
         Batch size sampled from the replay buffer. Default: 64.
     tau : float
-        Soft-update coefficient for target network. Default: 1.0 (hard update).
+        Soft-update coefficient for target network. Default: 1.0.
     gamma : float
         Discount factor. Default: 0.99.
     train_freq : int
-        Update the model every `train_freq` steps. Default: 4.
+        Update the model every N steps. Default: 4.
     gradient_steps : int
         Gradient steps per update. Default: 1.
     target_update_interval : int
         Steps between target network updates. Default: 1000.
     exploration_fraction : float
-        Fraction of total training during which ε decays. Default: 0.5.
+        Fraction of total training during which epsilon decays. Default: 0.5.
     exploration_initial_eps : float
-        Starting ε for ε-greedy exploration. Default: 1.0.
+        Starting epsilon. Default: 1.0.
     exploration_final_eps : float
-        Final ε after decay. Default: 0.05.
+        Final epsilon. Default: 0.05.
     tensorboard_log : str or None
-        Directory for TensorBoard logs. Default: 'runs/dqn'.
+        TensorBoard log directory. Default: 'runs/dqn'.
     policy_kwargs : dict or None
-        Extra kwargs for MlpPolicy (e.g. net_arch).
+        Extra kwargs for MlpPolicy.
     seed : int
         Random seed. Default: 42.
     device : str
-        Torch device. Default: 'auto'.
+        Torch device. Default: 'cpu'.
     """
 
     NAME = "DQN"
@@ -111,9 +130,9 @@ class DQNAttackAgent:
         tensorboard_log: str | None = "runs/dqn",
         policy_kwargs: dict | None = None,
         seed: int = 42,
-        device: str = "auto",
+        device: str = "cpu",
     ) -> None:
-        self.env = Monitor(IntActionWrapper(env))
+        self.env = Monitor(env)
         self.seed = seed
 
         if policy_kwargs is None:
@@ -155,46 +174,17 @@ class DQNAttackAgent:
         reward_threshold: float | None = None,
         tb_log_name: str = "dqn_run",
     ) -> DQN:
-        """
-        Train the DQN agent.
-
-        Parameters
-        ----------
-        total_timesteps : int
-            Total environment steps.
-        eval_env : gym.Env or None
-            Optional held-out environment for periodic evaluation.
-        eval_freq : int
-            Evaluate every `eval_freq` steps.
-        n_eval_episodes : int
-            Episodes per evaluation.
-        save_path : str or None
-            Directory to save the best checkpoint.
-        reward_threshold : float or None
-            Stop early once mean eval reward exceeds this value.
-        tb_log_name : str
-            Sub-directory name inside tensorboard_log.
-
-        Returns
-        -------
-        stable_baselines3.DQN
-        """
+        """Train the DQN agent."""
         callbacks = [EpisodeStatsCallback()]
 
         if eval_env is not None:
             eval_monitor = Monitor(eval_env)
-            callback_on_best = None
-            if reward_threshold is not None:
-                callback_on_best = StopTrainingOnRewardThreshold(
-                    reward_threshold=reward_threshold, verbose=1
-                )
             eval_cb = EvalCallback(
                 DummyVecEnv([lambda: eval_monitor]),
                 best_model_save_path=save_path,
                 log_path=save_path,
                 eval_freq=eval_freq,
                 n_eval_episodes=n_eval_episodes,
-                callback_on_new_best=callback_on_best,
                 verbose=0,
             )
             callbacks.append(eval_cb)
@@ -211,19 +201,24 @@ class DQNAttackAgent:
     # Inference
     # ------------------------------------------------------------------
 
-    def predict(self, obs: np.ndarray, deterministic: bool = True) -> int:
-        """Return the greedy (or ε-greedy) action for a given observation."""
+    def predict(self, obs: np.ndarray, deterministic: bool = True, action_masks: np.ndarray | None = None) -> int:
+        """Return the action for a given observation with optional masking."""
+        if action_masks is not None and deterministic:
+            obs_tensor = torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.model.device)
+            with torch.no_grad():
+                q_values = self.model.q_net(obs_tensor).squeeze(0).cpu().numpy()
+            mask_np = np.array(action_masks, dtype=np.float32)
+            q_values[mask_np < 0.5] = -np.inf
+            return int(np.argmax(q_values))
+        if action_masks is not None and not deterministic:
+            valid = np.where(np.array(action_masks) > 0.5)[0]
+            if len(valid) > 0 and np.random.random() < getattr(self.model, "exploration_rate", 0.05):
+                return int(np.random.choice(valid))
         action, _ = self.model.predict(obs, deterministic=deterministic)
         return int(action)
 
     def run_episode(self, env: gym.Env, deterministic: bool = True) -> dict[str, Any]:
-        """
-        Roll out one full episode and return metrics.
-
-        Returns
-        -------
-        dict with keys: total_reward, steps, path, caught, cumulative_detection
-        """
+        """Roll out one full episode with masked action selection."""
         obs, info = env.reset()
         done = False
         total_reward = 0.0
@@ -231,7 +226,8 @@ class DQNAttackAgent:
         path: list[int] = []
 
         while not done:
-            action = self.predict(obs, deterministic=deterministic)
+            mask = env.action_masks() if hasattr(env, "action_masks") else None
+            action = self.predict(obs, deterministic=deterministic, action_masks=mask)
             path.append(action)
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
