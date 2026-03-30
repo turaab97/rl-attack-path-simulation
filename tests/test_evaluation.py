@@ -30,6 +30,9 @@ class TestEvaluateAgent:
         assert "mean_steps" in results
         assert "catch_rate" in results
         assert "success_rate" in results
+        assert "mean_ai_hosts_reached" in results
+        assert "ai_host_reach_rate" in results
+        assert "ai_host_reach_counts" in results
         assert "successful_target_paths" in results
         assert "per_episode" in results
         assert results["n_episodes"] == 3
@@ -48,6 +51,7 @@ class TestEvaluateAgent:
         results = evaluate_agent(agent, env, n_episodes=5, deterministic=True)
         assert 0.0 <= results["success_rate"] <= 1.0
         assert 0.0 <= results["catch_rate"] <= 1.0
+        assert 0.0 <= results["ai_host_reach_rate"] <= 1.0
         env.close()
 
     def test_rewards_are_finite(self):
@@ -79,6 +83,8 @@ class TestEvaluateAgent:
         assert "steps" in ep
         assert "path" in ep
         assert "target_path" in ep
+        assert "ai_hosts_reached" in ep
         assert isinstance(ep["path"], list)
         assert isinstance(ep["target_path"], list)
+        assert isinstance(ep["ai_hosts_reached"], list)
         env.close()

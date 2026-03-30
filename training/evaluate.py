@@ -22,6 +22,7 @@ Outputs
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import random
 from pathlib import Path
@@ -46,6 +47,23 @@ _SENSITIVE_HOST_TOTAL_VALUE = sum(
         ((4, 0), 300),
     ]
 )  # = 850
+_AI_HOSTS = {(3, 0), (3, 1), (3, 2), (4, 0)}
+
+
+def _parse_target_tuple(target: str) -> tuple[int, int] | None:
+    """Parse a string target like '(3, 0)' into a tuple."""
+    try:
+        parsed = ast.literal_eval(target)
+        if (
+            isinstance(parsed, tuple)
+            and len(parsed) == 2
+            and all(isinstance(v, int) for v in parsed)
+        ):
+            return parsed
+    except Exception:
+        return None
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Core evaluation function
@@ -85,6 +103,7 @@ def evaluate_agent(
     detection_list = []
     goal_reached_list = []
     per_episode = []
+    ai_hosts_reached_counts = []
 
     # A reward above this fraction of the total sensitive-host value
     # indicates the agent reached AI infrastructure (not just DMZ/LAN).
@@ -94,13 +113,29 @@ def evaluate_agent(
     np.random.seed(seed)
 
     successful_target_paths: list[list[str]] = []
+    episodes_reaching_any_ai_host = 0
+    reached_ai_hosts_counter = {str(h): 0 for h in sorted(_AI_HOSTS)}
     for ep in range(n_episodes):
         result = agent.run_episode(env, deterministic=deterministic, seed=seed + ep)
+        target_path = result.get("target_path", [])
+        reached_ai_hosts: set[tuple[int, int]] = set()
+        for t in target_path:
+            parsed = _parse_target_tuple(t)
+            if parsed in _AI_HOSTS:
+                reached_ai_hosts.add(parsed)
+        reached_ai_hosts_str = [str(h) for h in sorted(reached_ai_hosts)]
+        result["ai_hosts_reached"] = reached_ai_hosts_str
+
         rewards.append(result["total_reward"])
         steps_list.append(result["steps"])
         caught_list.append(int(result.get("caught", False)))
         reached_goal = int(result["total_reward"] >= ai_reward_threshold)
         goal_reached_list.append(reached_goal)
+        ai_hosts_reached_counts.append(len(reached_ai_hosts))
+        if reached_ai_hosts:
+            episodes_reaching_any_ai_host += 1
+            for h in reached_ai_hosts_str:
+                reached_ai_hosts_counter[h] += 1
         if result.get("cumulative_detection") is not None:
             detection_list.append(result["cumulative_detection"])
         if reached_goal and "target_path" in result:
@@ -118,6 +153,9 @@ def evaluate_agent(
         "catch_rate": float(np.mean(caught_list)),
         "success_rate": float(np.mean(goal_reached_list)),
         "mean_cumulative_detection": float(np.mean(detection_list)) if detection_list else None,
+        "mean_ai_hosts_reached": float(np.mean(ai_hosts_reached_counts)),
+        "ai_host_reach_rate": float(episodes_reaching_any_ai_host / n_episodes),
+        "ai_host_reach_counts": reached_ai_hosts_counter,
         "successful_target_paths": successful_target_paths,
         "per_episode": per_episode,
     }
