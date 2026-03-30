@@ -30,6 +30,7 @@ class TestEvaluateAgent:
         assert "mean_steps" in results
         assert "catch_rate" in results
         assert "success_rate" in results
+        assert "successful_target_paths" in results
         assert "per_episode" in results
         assert results["n_episodes"] == 3
         assert len(results["per_episode"]) == 3
@@ -77,5 +78,7 @@ class TestEvaluateAgent:
         assert "total_reward" in ep
         assert "steps" in ep
         assert "path" in ep
+        assert "target_path" in ep
         assert isinstance(ep["path"], list)
+        assert isinstance(ep["target_path"], list)
         env.close()

@@ -90,6 +90,8 @@ class StealthAwareWrapper(gym.Wrapper):
 
     def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict]:
         obs, reward, terminated, truncated, info = self.env.step(int(action))
+        base_reward = float(reward)
+        detection_penalty = 0.0
 
         self._steps += 1
 
@@ -100,7 +102,8 @@ class StealthAwareWrapper(gym.Wrapper):
 
         if is_active:
             self._cumulative_detection += self.detection_cost_per_step
-            shaped_reward = reward - self.alpha * self.detection_cost_per_step
+            detection_penalty = float(self.alpha * self.detection_cost_per_step)
+            shaped_reward = reward - detection_penalty
         else:
             shaped_reward = reward
 
@@ -116,6 +119,8 @@ class StealthAwareWrapper(gym.Wrapper):
         info["detection_threshold"] = self.detection_threshold
         info["caught"] = caught
         info["episode_steps"] = self._steps
+        info["base_reward"] = base_reward
+        info["detection_penalty"] = detection_penalty
 
         return obs, shaped_reward, terminated, truncated, info
 

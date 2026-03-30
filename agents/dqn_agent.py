@@ -218,36 +218,54 @@ class DQNAttackAgent:
         self, obs: np.ndarray, deterministic: bool = True, action_masks: np.ndarray | None = None
     ) -> int:
         """Return the action for a given observation with optional masking."""
-        if action_masks is not None and deterministic:
+        if action_masks is not None:
+            mask_np = np.array(action_masks, dtype=np.float32)
+            valid = np.where(mask_np > 0.5)[0]
+            if len(valid) == 0:
+                action, _ = self.model.predict(obs, deterministic=deterministic)
+                return int(action)
+
             obs_tensor = (
                 torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.model.device)
             )
             with torch.no_grad():
                 q_values = self.model.q_net(obs_tensor).squeeze(0).cpu().numpy()
-            mask_np = np.array(action_masks, dtype=np.float32)
             q_values[mask_np < 0.5] = -np.inf
-            return int(np.argmax(q_values))
-        if action_masks is not None and not deterministic:
-            valid = np.where(np.array(action_masks) > 0.5)[0]
-            if len(valid) > 0 and np.random.random() < getattr(
-                self.model, "exploration_rate", 0.05
-            ):
+
+            if deterministic:
+                return int(np.argmax(q_values))
+
+            explore_rate = float(getattr(self.model, "exploration_rate", 0.05))
+            if np.random.random() < explore_rate:
                 return int(np.random.choice(valid))
+            return int(np.argmax(q_values))
+
         action, _ = self.model.predict(obs, deterministic=deterministic)
         return int(action)
 
-    def run_episode(self, env: gym.Env, deterministic: bool = True) -> dict[str, Any]:
+    def run_episode(
+        self,
+        env: gym.Env,
+        deterministic: bool = True,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
         """Roll out one full episode with masked action selection."""
-        obs, info = env.reset()
+        obs, info = env.reset(seed=seed) if seed is not None else env.reset()
         done = False
         total_reward = 0.0
         steps = 0
         path: list[int] = []
+        target_path: list[str] = []
 
         while not done:
             mask = env.action_masks() if hasattr(env, "action_masks") else None
             action = self.predict(obs, deterministic=deterministic, action_masks=mask)
             path.append(action)
+            target = None
+            if hasattr(env, "unwrapped") and hasattr(env.unwrapped, "action_space"):
+                nasim_action = env.unwrapped.action_space.get_action(int(action))
+                target = getattr(nasim_action, "target", None)
+            target_path.append(str(target) if target is not None else "None")
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             total_reward += reward
@@ -257,6 +275,7 @@ class DQNAttackAgent:
             "total_reward": total_reward,
             "steps": steps,
             "path": path,
+            "target_path": target_path,
             "caught": info.get("caught", False),
             "cumulative_detection": info.get("cumulative_detection", None),
         }

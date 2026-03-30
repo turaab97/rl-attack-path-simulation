@@ -223,23 +223,34 @@ class PPOAttackAgent:
         action, _ = self.model.predict(obs, deterministic=deterministic, action_masks=action_masks)
         return int(action)
 
-    def run_episode(self, env: gym.Env, deterministic: bool = False) -> dict[str, Any]:
+    def run_episode(
+        self,
+        env: gym.Env,
+        deterministic: bool = False,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
         """
         Roll out one full episode and return metrics.
 
         Uses stochastic policy by default because the deterministic policy
         can get stuck repeating a single action.
         """
-        obs, info = env.reset()
+        obs, info = env.reset(seed=seed) if seed is not None else env.reset()
         done = False
         total_reward = 0.0
         steps = 0
         path: list[int] = []
+        target_path: list[str] = []
 
         while not done:
             mask = env.action_masks() if hasattr(env, "action_masks") else None
             action = self.predict(obs, deterministic=deterministic, action_masks=mask)
             path.append(action)
+            target = None
+            if hasattr(env, "unwrapped") and hasattr(env.unwrapped, "action_space"):
+                nasim_action = env.unwrapped.action_space.get_action(int(action))
+                target = getattr(nasim_action, "target", None)
+            target_path.append(str(target) if target is not None else "None")
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             total_reward += reward
@@ -249,6 +260,7 @@ class PPOAttackAgent:
             "total_reward": total_reward,
             "steps": steps,
             "path": path,
+            "target_path": target_path,
             "caught": info.get("caught", False),
             "cumulative_detection": info.get("cumulative_detection", None),
         }

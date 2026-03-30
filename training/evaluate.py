@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,7 @@ def evaluate_agent(
     env,
     n_episodes: int = 100,
     deterministic: bool = False,
+    seed: int = 42,
 ) -> dict[str, Any]:
     """
     Evaluate a trained agent over `n_episodes` episodes.
@@ -88,14 +90,21 @@ def evaluate_agent(
     # indicates the agent reached AI infrastructure (not just DMZ/LAN).
     ai_reward_threshold = 100.0
 
+    random.seed(seed)
+    np.random.seed(seed)
+
+    successful_target_paths: list[list[str]] = []
     for ep in range(n_episodes):
-        result = agent.run_episode(env, deterministic=deterministic)
+        result = agent.run_episode(env, deterministic=deterministic, seed=seed + ep)
         rewards.append(result["total_reward"])
         steps_list.append(result["steps"])
         caught_list.append(int(result.get("caught", False)))
-        goal_reached_list.append(int(result["total_reward"] >= ai_reward_threshold))
+        reached_goal = int(result["total_reward"] >= ai_reward_threshold)
+        goal_reached_list.append(reached_goal)
         if result.get("cumulative_detection") is not None:
             detection_list.append(result["cumulative_detection"])
+        if reached_goal and "target_path" in result:
+            successful_target_paths.append(result["target_path"])
         per_episode.append(result)
 
     summary = {
@@ -109,6 +118,7 @@ def evaluate_agent(
         "catch_rate": float(np.mean(caught_list)),
         "success_rate": float(np.mean(goal_reached_list)),
         "mean_cumulative_detection": float(np.mean(detection_list)) if detection_list else None,
+        "successful_target_paths": successful_target_paths,
         "per_episode": per_episode,
     }
     return summary
@@ -125,6 +135,7 @@ def evaluate_both_agents(
     caught_penalty: float = -100.0,
     alpha: float = 1.0,
     output_dir: str = "results",
+    seed: int = 42,
 ) -> dict[str, Any]:
     """
     Load and evaluate both PPO and DQN agents, then save a comparison.
@@ -164,10 +175,10 @@ def evaluate_both_agents(
 
     # Evaluate
     print(f"\nEvaluating PPO over {n_episodes} episodes …")
-    ppo_results = evaluate_agent(ppo_agent, ppo_env, n_episodes=n_episodes)
+    ppo_results = evaluate_agent(ppo_agent, ppo_env, n_episodes=n_episodes, seed=seed)
 
     print(f"Evaluating DQN over {n_episodes} episodes …")
-    dqn_results = evaluate_agent(dqn_agent, dqn_env, n_episodes=n_episodes)
+    dqn_results = evaluate_agent(dqn_agent, dqn_env, n_episodes=n_episodes, seed=seed)
 
     # Print comparison table
     _print_comparison(ppo_results, dqn_results, stealth=stealth)
@@ -284,6 +295,12 @@ def _parse_args() -> argparse.Namespace:
         default="results",
         help="Directory to save evaluation results (default: results/).",
     )
+    p.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Evaluation random seed (default: 42).",
+    )
     return p.parse_args()
 
 
@@ -301,6 +318,7 @@ def main() -> None:
         caught_penalty=args.caught_penalty,
         alpha=args.alpha,
         output_dir=args.output_dir,
+        seed=args.seed,
     )
 
 

@@ -11,6 +11,7 @@ Course: MMAI 845 -- Reinforcement Learning
 import os
 
 import nasim
+import numpy as np
 import pytest
 
 from agents.wrappers import ActionMaskWrapper, IntActionWrapper
@@ -161,4 +162,28 @@ class TestSharedWrapper:
         mask = env.action_masks()
         assert mask is not None
         assert mask.sum() > 0
+        env.close()
+
+    def test_action_mask_enforces_discovery_and_reachability(self):
+        """Mask should match NASim state host_discovered + host_reachable checks."""
+        env = _wrap(nasim.make_benchmark("small-linear", fully_obs=True))
+        env.reset(seed=42)
+        mask = env.action_masks()
+        nasim_env = env.unwrapped
+        state = nasim_env.current_state
+
+        for action_idx in np.where(mask > 0.5)[0]:
+            action = nasim_env.action_space.get_action(int(action_idx))
+            target = getattr(action, "target", None)
+            if target is None:
+                continue
+            assert state.host_discovered(target) and state.host_reachable(target)
+
+        for action_idx in np.where(mask <= 0.5)[0]:
+            action = nasim_env.action_space.get_action(int(action_idx))
+            target = getattr(action, "target", None)
+            if target is None:
+                continue
+            assert not (state.host_discovered(target) and state.host_reachable(target))
+
         env.close()

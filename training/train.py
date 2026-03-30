@@ -20,8 +20,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import time
 from pathlib import Path
+
+import numpy as np
 
 from agents.dqn_agent import DQNAttackAgent
 from agents.ppo_agent import PPOAttackAgent
@@ -141,6 +144,15 @@ def train_agent(
     print(f"  Training {agent_type.upper()} | stealth={stealth} | steps={total_timesteps:,}")
     print(f"  Saving to: {save_dir}")
     print(f"{'='*60}\n")
+
+    random.seed(seed)
+    np.random.seed(seed)
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+    except Exception:
+        pass
 
     train_env, eval_env = _make_environments(
         scenario_name=scenario_name,

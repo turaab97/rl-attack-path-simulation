@@ -33,25 +33,41 @@ class ActionMaskWrapper(gym.Wrapper):
     object).  This wrapper fixes the mask computation and exposes it via
     the ``action_masks()`` method that MaskablePPO expects.
 
-    An action is valid when the target host has been discovered.  This
-    reduces the effective action space from 110 to ~5-15 valid actions
-    per step, making exploration tractable.
+    An action is valid when the target host has been both discovered and
+    is reachable from the current foothold. This reduces the effective
+    action space from 110 to ~5-15 valid actions per step, making
+    exploration tractable.
     """
+
+    def _is_action_valid(self, action_idx: int) -> bool:
+        """Return whether an action is valid in the current NASim state."""
+        nasim_env = self.unwrapped
+        state = getattr(nasim_env, "current_state", None)
+        if state is None:
+            return True
+
+        action = nasim_env.action_space.get_action(action_idx)
+        target = getattr(action, "target", None)
+        if target is None:
+            return True
+
+        return bool(state.host_discovered(target) and state.host_reachable(target))
 
     def action_masks(self) -> np.ndarray:
         nasim_env = self.unwrapped
-        mask = np.zeros(nasim_env.action_space.n, dtype=np.float32)
-        state = nasim_env.current_state
-        for a_idx in range(nasim_env.action_space.n):
-            action = nasim_env.action_space.get_action(a_idx)
-            target = action.target
-            if state.host_discovered(target) and state.host_reachable(target):
+        n_actions = nasim_env.action_space.n
+        mask = np.zeros(n_actions, dtype=np.float32)
+
+        for a_idx in range(n_actions):
+            if self._is_action_valid(a_idx):
                 mask[a_idx] = 1.0
+
+        # Defensive fallback: never return an all-zero mask.
         if mask.sum() == 0:
             mask[:] = 1.0
         return mask
 
-    def step(self, action):
+    def step(self, action: int):
         return self.env.step(int(action))
 
 
@@ -85,15 +101,20 @@ class DenseRewardWrapper(gym.Wrapper):
         self._prev_obs = obs.copy()
         return obs, info
 
-    def step(self, action):
+    def step(self, action: int):
         obs, reward, terminated, truncated, info = self.env.step(action)
+        dense_bonus = 0.0
+        n_changed = 0
 
         if self._prev_obs is not None:
             n_changed = int(
                 np.sum(np.abs(obs.astype(np.float32) - self._prev_obs.astype(np.float32)) > 1e-6)
             )
             if n_changed > 1:
-                reward += self.progress_bonus
+                dense_bonus = float(self.progress_bonus)
+                reward += dense_bonus
 
         self._prev_obs = obs.copy()
+        info["dense_progress_bonus"] = dense_bonus
+        info["dense_n_features_changed"] = n_changed
         return obs, reward, terminated, truncated, info
