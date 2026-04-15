@@ -4,24 +4,46 @@ network_config.py
 Defines the NASim scenario representing a corporate network that hosts
 AI infrastructure (LLM servers, vector databases, model repositories).
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
 
 Network topology
 ================
-Subnet 0 (Internet / attacker entry point)
-  └─ Subnet 1  DMZ  – public-facing web servers, email gateway
-       └─ Subnet 2  Corporate LAN – workstations, AD, internal services
-            └─ Subnet 3  AI Infrastructure – LLM servers, vector DB, model repo
-                 └─ Subnet 4  Data Lake – training data stores (highest value)
+This file defines the RL *environment* -- the world the agent interacts
+with.  In MDP terms:
 
-Every host in Subnet 3-4 is tagged as an AI-infrastructure asset.
-The attacker starts in Subnet 0 and must pivot through the subnets.
+  - **State**: NASim generates a flat observation vector encoding each
+    host's discovery status, access level, services, and OS type.
+  - **Actions**: NASim enumerates all (target_host, action_type) pairs.
+  - **Transitions**: exploits succeed with fixed probability (0.7-0.9);
+    failures still cost -1.
+  - **Rewards**: positive on first compromise of a sensitive host (the
+    values below), -1 per step otherwise.
+
+The topology is a 5-subnet linear chain modelling a real enterprise:
+
+  Subnet 0 (Internet / attacker entry point)
+    |
+    v
+  Subnet 1  DMZ  -- public-facing web servers, email gateway
+    |
+    v
+  Subnet 2  Corporate LAN -- workstations, AD, internal services
+    |
+    v
+  Subnet 3  AI Infrastructure -- LLM servers, vector DB, model repo
+    |
+    v
+  Subnet 4  Data Lake -- training data stores (highest value)
+
+The attacker starts in Subnet 0 and must discover hosts, exploit
+services, and escalate privileges across each firewall boundary to
+reach the AI infrastructure.
 
 This file exposes:
-  - build_network_scenario()  →  nasim.Scenario object
-  - AI_INFRA_HOSTS            →  list of (subnet, host) tuples
-  - make_env()                →  nasim.NASimEnv ready to use
+  - build_network_scenario()  ->  nasim.Scenario object
+  - AI_INFRA_HOSTS            ->  list of (subnet, host) tuples
+  - make_env()                ->  nasim.NASimEnv ready to use
 """
 
 from __future__ import annotations
@@ -32,20 +54,36 @@ import tempfile
 import nasim
 
 # ---------------------------------------------------------------------------
-# Host catalogue
+# High-value targets -- these are the AI-infrastructure hosts the attacker
+# must reach.  The tuple format is (subnet_index, host_index).  Subnet 3
+# houses the AI compute/serving layer; Subnet 4 is the data lake.
+# These coordinates are used by the evaluation harness to check whether the
+# agent's attack path actually reached AI infrastructure.
 # ---------------------------------------------------------------------------
-# Each host entry follows the NASim YAML schema:
-#   os, services, processes, value, firewall, access
-# ---------------------------------------------------------------------------
-
-# High-value target hosts – AI infrastructure
 AI_INFRA_HOSTS = [
-    (3, 0),  # LLM API Server
-    (3, 1),  # Vector Database (Pinecone / Weaviate clone)
-    (3, 2),  # Model Repository (MLflow / DVC server)
-    (4, 0),  # Training Data Lake (highest value)
+    (3, 0),  # LLM API Server       -- serves model inference requests
+    (3, 1),  # Vector Database       -- stores embeddings (e.g. Pinecone)
+    (3, 2),  # Model Repository      -- stores trained models (e.g. MLflow)
+    (4, 0),  # Training Data Lake    -- raw training data (highest value)
 ]
 
+# ---------------------------------------------------------------------------
+# NASim YAML scenario definition
+# ---------------------------------------------------------------------------
+# NASim reads a YAML file to build the MDP.  Key sections:
+#
+#   subnets          -- number of hosts per subnet (NASim auto-adds Subnet 0
+#                       as the internet/attacker entry; these counts are for
+#                       Subnets 1-4 only).
+#   topology         -- 5x5 adjacency matrix; 1 = subnets are connected.
+#   sensitive_hosts  -- (subnet, host): reward granted on first compromise.
+#   exploits         -- available attack actions with service/OS requirements,
+#                       success probability, cost, and access level gained.
+#   privilege_escalation -- post-exploit actions to escalate from user to root.
+#   host_configurations  -- per-host OS, services, and processes.
+#   firewall         -- (src_subnet, dst_subnet): services allowed through.
+#   step_limit       -- maximum episode length (horizon of the MDP).
+# ---------------------------------------------------------------------------
 _NETWORK_YAML = """\
 subnets: [3, 4, 3, 1]
 

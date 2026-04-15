@@ -1,5 +1,5 @@
 """
-setup.py – MMAI 845 RL Attack-Path Simulation
+setup.py -- MMAI 845 RL Attack-Path Simulation (Team Broadview)
 """
 
 from setuptools import find_packages, setup

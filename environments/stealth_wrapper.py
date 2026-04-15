@@ -4,29 +4,38 @@ stealth_wrapper.py
 Gymnasium-compatible wrapper that adds stealth-aware reward shaping on top
 of any NASim environment.
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
 
-Design
-======
-Each *active* action (exploit, scan, privilege escalation) carries a detection
-cost that accumulates over the episode.  When the cumulative score exceeds
-``detection_threshold``, the episode terminates early with a large negative
-reward (the attacker has been caught by the defender's SOC/IDS).
+Motivation
+==========
+Real attackers must balance speed against detection.  Every scan, exploit,
+or privilege escalation generates network traffic and log entries that a
+Security Operations Centre (SOC) or Intrusion Detection System (IDS) may
+flag.  The stealth wrapper models this trade-off by:
 
-The modified reward on **active** steps is::
+  1. Accumulating a "detection score" on every active (non-idle) step.
+  2. Subtracting a penalty from the reward proportional to detection risk.
+  3. Terminating the episode (attacker caught) when cumulative detection
+     exceeds a threshold.
+
+This encourages the RL agent to learn *efficient* attack paths that
+minimise unnecessary actions, rather than brute-forcing every host.
+
+Reward shaping
+==============
+On **active** steps (any action that changes state or costs resources)::
 
     r' = r_env  -  alpha * detection_cost_per_step
 
-On **idle** steps (action index 0, no state change) the reward is passed
-through unmodified and detection does not accumulate.  This ensures the
-penalty signal is consistent with the detection accumulation logic.
+On **idle** steps (action 0, noop) the reward passes through unchanged
+and detection does not accumulate.
 
-Variables
----------
-  r_env                  = raw NASim reward (positive on first host compromise)
-  alpha                  = penalty coefficient (default 1.0)
-  detection_cost_per_step = per-active-step detection increment (default 0.1)
+When cumulative detection >= detection_threshold, the episode terminates
+with an additional caught_penalty (-100 by default).
+
+With default parameters (threshold=0.8, cost=0.1, alpha=1.0), the agent
+has at most 8 active steps before being caught.
 """
 
 from __future__ import annotations

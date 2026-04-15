@@ -3,13 +3,39 @@ dqn_agent.py
 ------------
 Deep Q-Network (DQN) agent for NASim attack-path simulation.
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
 
-Uses Stable-Baselines3 DQN with manual action masking during exploration.
-DQN's epsilon-greedy exploration is modified so that random actions are
-sampled only from the set of valid actions (via ActionMaskWrapper), and
-greedy action selection masks invalid Q-values with -inf.
+Algorithm overview
+==================
+DQN is an *off-policy*, *value-based* method.  It learns a Q-function
+Q(s, a) that estimates the expected discounted return for taking action a
+in state s and following the learned policy thereafter.  The policy is
+implicitly greedy: pi(s) = argmax_a Q(s, a).
+
+Key DQN components:
+  - **Replay buffer** (100k transitions): stores past (s, a, r, s') tuples
+    and samples mini-batches for gradient updates, breaking temporal
+    correlation and improving sample efficiency.
+  - **Target network**: a lagged copy of the Q-network updated every 1,000
+    steps.  Reduces overestimation bias by decoupling the network used to
+    select actions from the one used to evaluate them.
+  - **Epsilon-greedy exploration**: with probability epsilon the agent picks
+    a random action; otherwise it picks argmax_a Q(s, a).  Epsilon decays
+    from 1.0 to 0.05 over 50% of training.
+
+Action masking for DQN
+======================
+Unlike MaskablePPO, SB3's DQN does not natively support action masking.
+We implement it manually in the predict() method:
+  1. Forward-pass the observation through the Q-network to get Q-values.
+  2. Set Q(s, a) = -inf for all invalid actions (mask < 0.5).
+  3. Take argmax over the masked Q-values.
+  4. During exploration (epsilon), sample uniformly from valid actions only.
+
+This is less tightly integrated than PPO's logit masking because the mask
+is applied *after* the Q-network forward pass rather than *before* the
+loss computation.  This is one reason DQN underperforms PPO on this task.
 """
 
 from __future__ import annotations
@@ -217,7 +243,20 @@ class DQNAttackAgent:
     def predict(
         self, obs: np.ndarray, deterministic: bool = True, action_masks: np.ndarray | None = None
     ) -> int:
-        """Return the action for a given observation with optional masking."""
+        """Return the action for a given observation with optional masking.
+
+        When action_masks is provided, this method bypasses SB3's default
+        predict() and implements manual Q-value masking:
+
+          1. Forward-pass observation through Q-network -> Q(s, a) for all a.
+          2. Set Q = -inf for invalid actions so argmax ignores them.
+          3. In deterministic mode: return argmax.
+          4. In stochastic mode: with probability epsilon, sample uniformly
+             from the valid action set; otherwise return argmax.
+
+        This ensures the agent never selects an invalid action during either
+        training or evaluation.
+        """
         if action_masks is not None:
             mask_np = np.array(action_masks, dtype=np.float32)
             valid = np.where(mask_np > 0.5)[0]
@@ -225,21 +264,26 @@ class DQNAttackAgent:
                 action, _ = self.model.predict(obs, deterministic=deterministic)
                 return int(action)
 
+            # Forward pass through the Q-network
             obs_tensor = (
                 torch.as_tensor(obs, dtype=torch.float32).unsqueeze(0).to(self.model.device)
             )
             with torch.no_grad():
                 q_values = self.model.q_net(obs_tensor).squeeze(0).cpu().numpy()
+
+            # Mask invalid actions by setting their Q-values to -inf
             q_values[mask_np < 0.5] = -np.inf
 
             if deterministic:
                 return int(np.argmax(q_values))
 
+            # Epsilon-greedy with masking: explore only over valid actions
             explore_rate = float(getattr(self.model, "exploration_rate", 0.05))
             if np.random.random() < explore_rate:
                 return int(np.random.choice(valid))
             return int(np.argmax(q_values))
 
+        # Fallback: no mask provided, use SB3's default prediction
         action, _ = self.model.predict(obs, deterministic=deterministic)
         return int(action)
 

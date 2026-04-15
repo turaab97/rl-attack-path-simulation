@@ -3,8 +3,27 @@ train.py
 --------
 Main training entry point for RL attack-path simulation.
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
+
+This script orchestrates the full RL training pipeline:
+
+  1. Build the NASim environment with the correct wrapper stack.
+  2. Instantiate a PPO or DQN agent with configured hyperparameters.
+  3. Train for the specified number of timesteps, periodically evaluating.
+  4. Save the trained model, hyperparameters, and metadata to disk.
+
+The wrapper composition order is important for correct behaviour:
+
+  raw NASim env
+    -> IntActionWrapper        (coerce action dtype to Python int)
+      -> ActionMaskWrapper     (expose valid-action masks)
+        -> DenseRewardWrapper  (reward shaping for sparse environments)
+          -> [StealthAwareWrapper if --stealth flag is set]
+
+The training environment uses DenseRewardWrapper for intermediate reward
+shaping.  The evaluation environment does NOT use DenseRewardWrapper so
+that evaluation metrics reflect genuine task performance.
 
 Usage (CLI)
 ===========

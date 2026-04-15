@@ -3,8 +3,23 @@ evaluate.py
 -----------
 Evaluation harness for trained PPO / DQN attack-path agents.
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
+
+This module evaluates trained agents by running N episodes and computing
+aggregate metrics.  Key design decisions:
+
+  - **Stochastic evaluation**: we default to deterministic=False because
+    MaskablePPO's deterministic policy can get stuck repeating a single
+    action.  Stochastic sampling with learned action probabilities
+    produces more representative behaviour.
+  - **Seeded episodes**: each episode is seeded with (base_seed + ep_index)
+    for exact reproducibility.
+  - **Attack path logging**: every action's target host is recorded so we
+    can trace the full attack path post-hoc and identify pivot hosts.
+  - **AI-host reach metrics**: even when total reward is negative (agent
+    didn't "succeed" by the strict threshold), we track which AI-infra
+    hosts were visited to evidence partial attack chains.
 
 Usage (CLI)
 ===========
@@ -16,7 +31,9 @@ python -m training.evaluate \\
 Outputs
 =======
 * Console summary table
-* results/eval_results.json  (per-episode and aggregate metrics)
+* results/eval_baseline.json   (baseline mode metrics)
+* results/eval_stealth.json    (stealth mode metrics)
+* results/eval_results.json    (backward-compatible combined file)
 """
 
 from __future__ import annotations

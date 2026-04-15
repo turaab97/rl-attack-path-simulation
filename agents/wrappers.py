@@ -3,8 +3,25 @@ wrappers.py
 -----------
 Shared Gymnasium wrappers used by both PPO and DQN agents.
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
+
+This module contains three wrappers that are composed around the raw NASim
+environment to make it compatible with Stable-Baselines3 and to improve
+learning:
+
+  1. IntActionWrapper   -- type coercion (NASim requires Python int)
+  2. ActionMaskWrapper  -- exposes valid-action masks for MaskablePPO / DQN
+  3. DenseRewardWrapper -- adds intermediate reward shaping for sparse-reward
+                           environments
+
+The standard wrapper composition order used during training is:
+
+  raw NASim env
+    -> IntActionWrapper        (fix action dtype)
+      -> ActionMaskWrapper     (mask invalid actions)
+        -> DenseRewardWrapper  (reward shaping)
+          -> [StealthAwareWrapper if stealth mode]
 """
 
 from __future__ import annotations
@@ -14,11 +31,12 @@ import numpy as np
 
 
 class IntActionWrapper(gym.Wrapper):
-    """Coerce actions to Python int — required by nasim >= 0.10 with NumPy 2.x.
+    """Coerce actions to Python int -- required by NASim >= 0.10.
 
-    NASim's step() expects a plain Python int, but SB3 may pass numpy
-    integer types that NASim rejects.  This wrapper sits between the
-    SB3 model and the environment to ensure type compatibility.
+    SB3 models return numpy integer types (np.int64).  NASim's flat-action
+    step() requires a plain Python int and raises an error otherwise.
+    This thin wrapper sits directly on top of the raw NASim env and
+    converts the action type before forwarding.
     """
 
     def step(self, action):
@@ -40,7 +58,17 @@ class ActionMaskWrapper(gym.Wrapper):
     """
 
     def _is_action_valid(self, action_idx: int) -> bool:
-        """Return whether an action is valid in the current NASim state."""
+        """Return whether an action is valid in the current NASim state.
+
+        An action is valid when its target host has been:
+          (a) discovered -- the agent has previously scanned the subnet and
+              knows the host exists, AND
+          (b) reachable  -- there is a network path from a compromised host
+              to the target (respecting firewall rules).
+
+        This drastically reduces the effective action space from 110 to
+        roughly 5-15 valid actions per step, making exploration tractable.
+        """
         nasim_env = self.unwrapped
         state = getattr(nasim_env, "current_state", None)
         if state is None:
@@ -54,6 +82,12 @@ class ActionMaskWrapper(gym.Wrapper):
         return bool(state.host_discovered(target) and state.host_reachable(target))
 
     def action_masks(self) -> np.ndarray:
+        """Build a binary mask over the full action space.
+
+        Returns a float32 array of shape (n_actions,) where 1.0 = valid
+        and 0.0 = invalid.  MaskablePPO uses this to zero out logits
+        before softmax; DQN uses it to set Q-values to -inf before argmax.
+        """
         nasim_env = self.unwrapped
         n_actions = nasim_env.action_space.n
         mask = np.zeros(n_actions, dtype=np.float32)
@@ -62,7 +96,9 @@ class ActionMaskWrapper(gym.Wrapper):
             if self._is_action_valid(a_idx):
                 mask[a_idx] = 1.0
 
-        # Defensive fallback: never return an all-zero mask.
+        # Defensive fallback: if no actions are valid (shouldn't happen in
+        # a well-configured NASim scenario), allow everything to prevent
+        # a crash in the agent's action selection.
         if mask.sum() == 0:
             mask[:] = 1.0
         return mask

@@ -3,14 +3,30 @@ ppo_agent.py
 ------------
 Proximal Policy Optimization (PPO) agent for NASim attack-path simulation.
 
-Author: Syed Ali Turab
-Course: MMAI 845 – Reinforcement Learning
+Author: Team Broadview
+Course: MMAI 845 -- Reinforcement Learning
 
-Uses sb3-contrib MaskablePPO with action masking.  NASim has 110 actions but
-only ~30 are valid at any time.  Without masking the agent wastes most of its
-exploration budget on invalid actions that always return -1.  MaskablePPO
-zeroes out invalid action logits before sampling, so every training step
-interacts meaningfully with the environment.
+Algorithm overview
+==================
+PPO is an *on-policy*, *policy gradient* method.  It directly parameterises
+a stochastic policy pi(a|s) and optimises it by collecting rollouts of
+experience, computing advantages using Generalised Advantage Estimation (GAE),
+and performing clipped gradient updates that prevent destructively large
+policy changes.
+
+Why PPO for this problem?
+=========================
+1. **Action masking**: sb3-contrib provides MaskablePPO, which natively zeros
+   out logits for invalid actions before the softmax.  This means every action
+   sampled during training is guaranteed valid -- critical when 70-80% of
+   NASim's 110 actions are invalid at any given state.
+2. **Stability**: PPO's clipped objective and on-policy rollouts provide
+   stable learning, which is important for sparse-reward environments where
+   a single bad update can erase progress.
+3. **Entropy regularisation**: the entropy coefficient (ent_coef) encourages
+   exploration by penalising overly deterministic policies.  We set it higher
+   than default (0.05 vs 0.01) because the large invalid-action space requires
+   more exploration of valid alternatives.
 """
 
 from __future__ import annotations
