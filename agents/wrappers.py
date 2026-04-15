@@ -3,7 +3,7 @@ wrappers.py
 -----------
 Shared Gymnasium wrappers used by both PPO and DQN agents.
 
-Author: Team Broadview
+Author: Syed Ali Turab
 Course: MMAI 845 -- Reinforcement Learning
 
 This module contains three wrappers that are composed around the raw NASim

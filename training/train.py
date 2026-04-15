@@ -3,7 +3,7 @@ train.py
 --------
 Main training entry point for RL attack-path simulation.
 
-Author: Team Broadview
+Author: Syed Ali Turab
 Course: MMAI 845 -- Reinforcement Learning
 
 This script orchestrates the full RL training pipeline:

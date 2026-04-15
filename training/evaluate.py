@@ -3,7 +3,7 @@ evaluate.py
 -----------
 Evaluation harness for trained PPO / DQN attack-path agents.
 
-Author: Team Broadview
+Author: Syed Ali Turab
 Course: MMAI 845 -- Reinforcement Learning
 
 This module evaluates trained agents by running N episodes and computing

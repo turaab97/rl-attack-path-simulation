@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 # run.sh -- One-command reproduction script for MMAI 845 Final Project
-# Team Broadview
+# Syed Ali Turab
 #
 # Handles: venv creation, dependency installation, linting, tests,
 #          training (PPO + DQN, baseline + stealth), evaluation, and
@@ -74,7 +74,7 @@ done
 echo ""
 echo "============================================================"
 echo "  MMAI 845 -- RL Attack Path Simulation"
-echo "  Team Broadview"
+echo "  Syed Ali Turab"
 echo "  Mode: $MODE | Timesteps: $TIMESTEPS | Seed: $SEED"
 echo "============================================================"
 echo ""

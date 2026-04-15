@@ -4,7 +4,7 @@ stealth_wrapper.py
 Gymnasium-compatible wrapper that adds stealth-aware reward shaping on top
 of any NASim environment.
 
-Author: Team Broadview
+Author: Syed Ali Turab
 Course: MMAI 845 -- Reinforcement Learning
 
 Motivation

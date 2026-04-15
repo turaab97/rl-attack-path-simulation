@@ -3,7 +3,7 @@ dqn_agent.py
 ------------
 Deep Q-Network (DQN) agent for NASim attack-path simulation.
 
-Author: Team Broadview
+Author: Syed Ali Turab
 Course: MMAI 845 -- Reinforcement Learning
 
 Algorithm overview

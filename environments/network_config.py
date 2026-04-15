@@ -4,7 +4,7 @@ network_config.py
 Defines the NASim scenario representing a corporate network that hosts
 AI infrastructure (LLM servers, vector databases, model repositories).
 
-Author: Team Broadview
+Author: Syed Ali Turab
 Course: MMAI 845 -- Reinforcement Learning
 
 Network topology

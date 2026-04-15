@@ -1,6 +1,6 @@
 # Using AI to Secure AI: RL for Attack Path Simulation Against Enterprise AI Infrastructure
 
-> **MMAI 845 -- Reinforcement Learning | Team Broadview**
+> **MMAI 845 -- Reinforcement Learning | Syed Ali Turab**
 
 [![CI](https://github.com/turaab97/rl-attack-path-simulation/actions/workflows/ci.yml/badge.svg)](https://github.com/turaab97/rl-attack-path-simulation/actions)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
