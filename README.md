@@ -7,6 +7,7 @@
 [![Stable-Baselines3](https://img.shields.io/badge/SB3-2.3%2B-orange)](https://stable-baselines3.readthedocs.io/)
 [![NASim](https://img.shields.io/badge/NASim-0.10%2B-green)](https://networkattacksimulator.readthedocs.io/)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey)](LICENSE)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/turaab97/rl-attack-path-simulation/blob/main/notebooks/00_colab_training.ipynb)
 
 ---
 
@@ -221,18 +222,24 @@ Both agents were caught after exactly 9 active steps. The detection threshold of
 
 ## Reproducing the Results
 
-> **This section is critical for evaluation. Follow these steps exactly to reproduce our results.**
+> **This section is the most important part of this README. Follow one of the two options below to fully reproduce our results.**
 
 ### Prerequisites
 
-- **Python 3.10, 3.11, or 3.12** (PyTorch does not support 3.13)
-- **Git** for cloning the repository
-- **Docker** (optional but recommended -- avoids all dependency issues)
-- **Google Colab** (optional -- for GPU-accelerated training)
+You need **one** of the following:
 
-### Option 1: One-Command Shell Script (Recommended)
+| Option | What you need | Time estimate |
+|---|---|---|
+| **A. Local (venv)** | Python 3.10-3.12, Git, macOS/Linux/Windows | ~45-60 min (CPU) |
+| **B. Google Colab** | Google account, web browser | ~30 min (GPU) |
 
-The `run.sh` script handles everything -- virtual environment creation, dependency installation, training, evaluation, and report generation.
+---
+
+### Option A: Local Reproduction (venv + run.sh)
+
+> Tested on macOS and Ubuntu. Requires Python 3.10, 3.11, or 3.12 (PyTorch does not support 3.13+).
+
+**Quick start (one command):**
 
 ```bash
 git clone https://github.com/turaab97/rl-attack-path-simulation.git
@@ -241,123 +248,155 @@ chmod +x run.sh
 ./run.sh
 ```
 
-The script will:
-1. Create a Python virtual environment
-2. Install all dependencies (pinned versions)
-3. Run the linter and test suite
-4. Train both PPO and DQN agents (baseline mode, 500k steps each)
-5. Train both agents in stealth mode (500k steps each)
-6. Evaluate all four trained models (100 episodes, seed 42)
-7. Generate all figures and the penetration testing report
-8. Print a summary of results
+That's it. The script will:
 
-All output is saved to `results/`. Estimated time: 30-60 minutes on a modern CPU.
+1. Check your Python version (must be 3.10-3.12)
+2. Create a virtual environment in `.venv/`
+3. Install all dependencies via `pip install -e ".[dev]"`
+4. Run linters (black, isort, flake8) -- non-blocking warnings only
+5. Run the full test suite (66 tests, ~3-6 min)
+6. Train PPO + DQN baseline (500k steps each)
+7. Train PPO + DQN stealth (500k steps each)
+8. Evaluate all 4 models (100 episodes, seed 42)
+9. Generate figures and penetration testing report
+10. Print a summary of results
 
-### Option 2: Docker (Zero Local Dependencies)
+All output goes to `results/`. Total time: ~45-60 minutes on a modern CPU.
+
+**Shorter runs (if you just want to verify the code works):**
 
 ```bash
-git clone https://github.com/turaab97/rl-attack-path-simulation.git
-cd rl-attack-path-simulation
+# Just run linters + tests (no training, <5 min)
+./run.sh --test-only
 
-# Train baseline comparison (PPO + DQN, 500k steps each)
-docker compose run train
+# Just evaluate existing models (skip training, ~2 min)
+./run.sh --eval-only
 
-# Train stealth mode comparison
-docker compose run train-stealth
-
-# Evaluate trained models (100 episodes each)
-docker compose run evaluate
-docker compose run evaluate-stealth
-
-# Generate visualizations
-docker compose run visualize
-
-# Run test suite
-docker compose run test
+# Just train (skip evaluation and reports)
+./run.sh --train-only
 ```
 
-Results are persisted to `./results/` on the host via a bind mount.
-
-### Option 3: Manual Local Installation
+**Manual step-by-step (if you prefer not to use run.sh):**
 
 ```bash
 git clone https://github.com/turaab97/rl-attack-path-simulation.git
 cd rl-attack-path-simulation
 
-# Create and activate virtual environment
+# 1. Create and activate virtual environment
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# Install the package with all dependencies
+# 2. Install dependencies
 pip install --upgrade pip
 pip install -e ".[dev]"
 
-# Verify installation
-python -c "import nasim; import stable_baselines3; print('OK')"
+# 3. Verify installation
+python -c "import nasim; import stable_baselines3; import sb3_contrib; print('OK')"
 
-# Run linter and tests
-black --check .
-isort --check-only .
-flake8 . --count --max-line-length=120 --statistics
+# 4. Run tests
 pytest tests/ -v
-```
 
-**Training (manual commands):**
-
-```bash
-# Train PPO baseline (500k steps)
-python -m training.train --agent ppo --timesteps 500000 --seed 42
-
-# Train DQN baseline (500k steps)
-python -m training.train --agent dqn --timesteps 500000 --seed 42
-
-# Train both with stealth wrapper
-python -m training.train --agent ppo --stealth --timesteps 500000 --seed 42
-python -m training.train --agent dqn --stealth --timesteps 500000 --seed 42
-
-# Or train both at once in comparison mode
+# 5. Train (both algorithms, baseline + stealth)
 python -m training.train --compare --timesteps 500000 --seed 42
 python -m training.train --compare --stealth --timesteps 500000 --seed 42
-```
 
-**Evaluation (manual commands):**
-
-```bash
-# Evaluate baseline models
+# 6. Evaluate
 python -m training.evaluate \
     --ppo_model results/ppo_baseline/final_model \
     --dqn_model results/dqn_baseline/final_model \
     --episodes 100 --seed 42
 
-# Evaluate stealth models
 python -m training.evaluate \
     --ppo_model results/ppo_stealth/final_model \
     --dqn_model results/dqn_stealth/final_model \
     --stealth --episodes 100 --seed 42
-```
 
-**Generate figures and report:**
-
-```bash
+# 7. Generate figures and report
 python -m analysis.generate_all_figures
 python -m analysis.report_generator --results_dir results/ --output results/pentest_report.md
 ```
 
-### Option 4: Google Colab (GPU-Accelerated)
+---
 
-Open `notebooks/00_colab_training.ipynb` in Google Colab, set runtime to T4 GPU, and run all cells. The notebook handles cloning, installation, training, evaluation, and result packaging automatically.
+### Option B: Google Colab (Fallback / GPU-Accelerated)
+
+> Use this if you have any issues with local Python/dependency setup, or if you want faster training via GPU.
+
+**One-click launch:**
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/turaab97/rl-attack-path-simulation/blob/main/notebooks/00_colab_training.ipynb)
+
+**Steps:**
+
+1. Click the badge above (or open `notebooks/00_colab_training.ipynb` and upload to [colab.research.google.com](https://colab.research.google.com))
+2. Go to **Runtime > Change runtime type > T4 GPU**
+3. **Run all cells** (Runtime > Run all)
+4. Wait ~30 minutes, then download the results ZIP when prompted
+
+The notebook will:
+
+1. Check GPU availability
+2. Clone this repository from GitHub
+3. Install all dependencies
+4. Verify the environment, action masking, and dense reward wrappers
+5. Run linters and the full test suite
+6. Train PPO + DQN baseline (500k steps, ~20 min on T4)
+7. Train PPO + DQN stealth (500k steps, ~20 min on T4)
+8. Evaluate all 4 models (100 episodes, seed 42)
+9. Generate figures and penetration testing report
+10. Run acceptance checks (verifies expected metrics)
+11. Package results into a downloadable ZIP file
+
+Total time on T4 GPU: ~30 minutes.
+
+After completion, the notebook will prompt you to download `rl_results.zip` containing all trained models, evaluation metrics, figures, and the pentest report.
+
+---
+
+### Option C: Docker (Alternative)
+
+```bash
+git clone https://github.com/turaab97/rl-attack-path-simulation.git
+cd rl-attack-path-simulation
+
+docker compose run train            # Train baseline
+docker compose run train-stealth    # Train stealth
+docker compose run evaluate         # Evaluate baseline
+docker compose run evaluate-stealth # Evaluate stealth
+docker compose run visualize        # Generate plots
+docker compose run test             # Run tests
+```
+
+Results are persisted to `./results/` on the host via a bind mount.
+
+---
 
 ### Verifying Reproduction
 
-After running any of the above options, check the following expected outputs:
+After running any of the above options, check these expected outputs:
 
 | File | Expected Content |
 |---|---|
-| `results/eval_baseline.json` | PPO mean_reward: -100.0, DQN mean_reward: ~-498 |
-| `results/eval_stealth.json` | Both agents: mean_reward ~-109.9, catch_rate 1.0 |
+| `results/eval_baseline.json` | PPO mean_reward: **-100.0** (std 0.0), DQN mean_reward: ~-498 |
+| `results/eval_stealth.json` | Both agents: mean_reward **~-109.9**, catch_rate **1.0**, mean_steps **9.0** |
 | `results/ppo_baseline/train_meta.json` | Full hyperparameters, seed=42, wall time |
 | `results/dqn_baseline/train_meta.json` | Full hyperparameters, seed=42, wall time |
 | `results/plots/` | Training curves, comparison charts, topology diagram |
+| `results/pentest_report.md` | Automated penetration testing report |
+
+**Quick verification command (after training + evaluation):**
+
+```bash
+python -c "
+import json
+with open('results/eval_baseline.json') as f: b = json.load(f)
+with open('results/eval_stealth.json') as f: s = json.load(f)
+print(f'PPO baseline: {b[\"ppo\"][\"mean_reward\"]:.1f} (expect -100.0)')
+print(f'DQN baseline: {b[\"dqn\"][\"mean_reward\"]:.1f} (expect ~-498)')
+print(f'PPO stealth:  {s[\"ppo\"][\"mean_reward\"]:.1f} (expect ~-109.9)')
+print(f'PPO catch:    {s[\"ppo\"][\"catch_rate\"]:.0%} (expect 100%)')
+"
+```
 
 ---
 
