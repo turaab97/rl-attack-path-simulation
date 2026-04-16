@@ -222,22 +222,59 @@ Both agents were caught after exactly 9 active steps. The detection threshold of
 
 ## Reproducing the Results
 
-> **This section is the most important part of this README. Follow one of the two options below to fully reproduce our results.**
+> **This section is the most important part of this README. Follow one of the options below to fully reproduce our results. We recommend Option A (Google Colab) -- it requires zero local setup and runs in ~30 minutes.**
 
 ### Prerequisites
 
 You need **one** of the following:
 
-| Option | What you need | Time estimate |
-|---|---|---|
-| **A. Local (venv)** | Python 3.10-3.12, Git, macOS/Linux/Windows | ~45-60 min (CPU) |
-| **B. Google Colab** | Google account, web browser | ~30 min (GPU) |
+| Option | What you need | Time estimate | Recommended? |
+|---|---|---|---|
+| **A. Google Colab** | Google account, web browser | **~30 min (GPU)** | **Yes** |
+| **B. Local (venv + run.sh)** | Python 3.10-3.12, Git, macOS/Linux/Windows | ~45-60 min (CPU) | Alternative |
+| **C. Docker** | Docker installed | ~45-60 min (CPU) | Alternative |
 
 ---
 
-### Option A: Local Reproduction (venv + run.sh)
+### Option A: Google Colab (Recommended)
 
-> Tested on macOS and Ubuntu. Requires Python 3.10, 3.11, or 3.12 (PyTorch does not support 3.13+).
+> **Fastest and most reliable way to reproduce.** No local Python installation needed -- everything runs on Google's cloud with a free T4 GPU.
+
+**One-click launch:**
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/turaab97/rl-attack-path-simulation/blob/main/notebooks/00_colab_training.ipynb)
+
+**Steps:**
+
+1. **Click the badge above** (or open `notebooks/00_colab_training.ipynb` and upload to [colab.research.google.com](https://colab.research.google.com))
+2. Go to **Runtime > Change runtime type > T4 GPU**
+3. Click **Runtime > Run all**
+4. Wait ~30 minutes
+5. Download the results ZIP when prompted
+
+That's it. The notebook handles everything automatically:
+
+1. Checks GPU availability
+2. Clones this repository from GitHub
+3. Installs all dependencies
+4. Verifies the environment, action masking, and dense reward wrappers
+5. Runs linters and the full test suite (66 tests)
+6. Trains PPO + DQN baseline (500k steps each, ~15 min on T4)
+7. Trains PPO + DQN stealth (500k steps each, ~15 min on T4)
+8. Evaluates all 4 models (100 episodes, seed 42)
+9. Generates figures and penetration testing report
+10. Runs acceptance checks (verifies expected metrics)
+11. Packages results into a downloadable ZIP file
+
+**Total time on T4 GPU: ~30 minutes.**
+
+After completion, the notebook will prompt you to download `rl_results.zip` containing all trained models, evaluation metrics, figures, and the pentest report.
+
+---
+
+### Option B: Local Reproduction (venv + run.sh)
+
+> Use this if you prefer to run everything locally. Requires Python 3.10, 3.11, or 3.12 (PyTorch does not support 3.13+). Tested on macOS and Ubuntu.
 
 **Quick start (one command):**
 
@@ -262,6 +299,8 @@ That's it. The script will:
 10. Print a summary of results
 
 All output goes to `results/`. Total time: ~45-60 minutes on a modern CPU.
+
+If anything fails, the script will print a message pointing you to the Colab notebook (Option A) as a fallback.
 
 **Shorter runs (if you just want to verify the code works):**
 
@@ -315,41 +354,6 @@ python -m training.evaluate \
 python -m analysis.generate_all_figures
 python -m analysis.report_generator --results_dir results/ --output results/pentest_report.md
 ```
-
----
-
-### Option B: Google Colab (Fallback / GPU-Accelerated)
-
-> Use this if you have any issues with local Python/dependency setup, or if you want faster training via GPU.
-
-**One-click launch:**
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/turaab97/rl-attack-path-simulation/blob/main/notebooks/00_colab_training.ipynb)
-
-**Steps:**
-
-1. Click the badge above (or open `notebooks/00_colab_training.ipynb` and upload to [colab.research.google.com](https://colab.research.google.com))
-2. Go to **Runtime > Change runtime type > T4 GPU**
-3. **Run all cells** (Runtime > Run all)
-4. Wait ~30 minutes, then download the results ZIP when prompted
-
-The notebook will:
-
-1. Check GPU availability
-2. Clone this repository from GitHub
-3. Install all dependencies
-4. Verify the environment, action masking, and dense reward wrappers
-5. Run linters and the full test suite
-6. Train PPO + DQN baseline (500k steps, ~20 min on T4)
-7. Train PPO + DQN stealth (500k steps, ~20 min on T4)
-8. Evaluate all 4 models (100 episodes, seed 42)
-9. Generate figures and penetration testing report
-10. Run acceptance checks (verifies expected metrics)
-11. Package results into a downloadable ZIP file
-
-Total time on T4 GPU: ~30 minutes.
-
-After completion, the notebook will prompt you to download `rl_results.zip` containing all trained models, evaluation metrics, figures, and the pentest report.
 
 ---
 
