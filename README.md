@@ -191,12 +191,12 @@ Both algorithms were trained for 500,000 timesteps on the custom AI-infrastructu
 
 | Metric | PPO | DQN |
 |---|---|---|
-| Mean Reward | **-100.0** | -498.0 |
-| Std Reward | **0.0** | 19.9 |
+| Mean Reward | **-100.0** | -500.0 |
+| Std Reward | **0.0** | 0.0 |
 | Mean Steps | 500.0 | 500.0 |
 | Success Rate | 0% | 0% |
 
-**PPO** learned a consistent policy (zero variance) that navigates the network systematically. **DQN** collapsed to near-random behaviour with high variance, indicating unstable Q-learning in this environment.
+**PPO** learned a consistent policy (zero variance) that navigates the network systematically, reaching all 4 AI infrastructure hosts in every episode. **DQN** converged to a degenerate policy that fails to make meaningful progress, achieving zero variance but at the maximum step penalty (-500).
 
 DQN's failure has three root causes: (1) replay buffer staleness mixing old experience with current policy, (2) manual action masking doesn't influence gradient updates like PPO's native logit masking, (3) uniform epsilon-greedy exploration over valid actions is less efficient than PPO's entropy-regularized sampling.
 
@@ -377,7 +377,7 @@ After running any of the above options, check these expected outputs:
 
 | File | Expected Content |
 |---|---|
-| `results/eval_baseline.json` | PPO mean_reward: **-100.0** (std 0.0), DQN mean_reward: ~-498 |
+| `results/eval_baseline.json` | PPO mean_reward: **-100.0** (std 0.0), DQN mean_reward: **-500.0** (std 0.0) |
 | `results/eval_stealth.json` | Both agents: mean_reward **~-109.9**, catch_rate **1.0**, mean_steps **9.0** |
 | `results/ppo_baseline/train_meta.json` | Full hyperparameters, seed=42, wall time |
 | `results/dqn_baseline/train_meta.json` | Full hyperparameters, seed=42, wall time |
@@ -392,7 +392,7 @@ import json
 with open('results/eval_baseline.json') as f: b = json.load(f)
 with open('results/eval_stealth.json') as f: s = json.load(f)
 print(f'PPO baseline: {b[\"ppo\"][\"mean_reward\"]:.1f} (expect -100.0)')
-print(f'DQN baseline: {b[\"dqn\"][\"mean_reward\"]:.1f} (expect ~-498)')
+print(f'DQN baseline: {b[\"dqn\"][\"mean_reward\"]:.1f} (expect -500.0)')
 print(f'PPO stealth:  {s[\"ppo\"][\"mean_reward\"]:.1f} (expect ~-109.9)')
 print(f'PPO catch:    {s[\"ppo\"][\"catch_rate\"]:.0%} (expect 100%)')
 "
